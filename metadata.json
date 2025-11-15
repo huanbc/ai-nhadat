@@ -1,0 +1,5 @@
+{
+  "name": "Trợ lý Nhà đất AI",
+  "description": "Ứng dụng giúp soạn thảo văn bản và hợp đồng nhà đất một cách nhanh chóng. Tự động trích xuất thông tin từ các tài liệu như CCCD, Giấy chứng nhận quyền sử dụng đất và điền vào mẫu có sẵn, sau đó cho phép người dùng xem lại, chỉnh sửa và sao chép nội dung hoàn chỉnh.",
+  "requestFramePermissions": []
+}

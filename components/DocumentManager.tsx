@@ -65,6 +65,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [activeAnalyzedDocId, setActiveAnalyzedDocId] = useState<string | null>(null);
   const [viewingOfficialDoc, setViewingOfficialDoc] = useState<StoredOfficialDocument | null>(null);
 
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -98,7 +99,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     };
     fetchInitialData();
   }, [customLandPrices]);
-  
+
   const procedureCategories = useMemo(() => {
       const cats = new Set(procedures.map(p => p.category));
       return ['Tất cả', ...Array.from(cats)];
@@ -443,7 +444,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   
   const renderOfficialDocViewer = () => {
     if (!viewingOfficialDoc) return null;
-    const { directiveFile, responseContent, title } = viewingOfficialDoc;
+    const { directiveFiles, responseContent, title, directiveAnalysis } = viewingOfficialDoc;
 
     return (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
@@ -454,15 +455,21 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 </div>
                 <div className="flex-grow overflow-auto grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50">
                     <div>
-                        <h4 className="font-semibold text-center mb-2">Văn bản chỉ đạo</h4>
-                        <div className="w-full h-full min-h-[75vh] border rounded-md bg-white">
-                         {directiveFile.mimeType.startsWith('image/') ? (
-                            <img src={`data:${directiveFile.mimeType};base64,${directiveFile.base64}`} alt="Văn bản chỉ đạo" className="max-w-full h-auto mx-auto"/>
-                        ) : directiveFile.mimeType === 'application/pdf' ? (
-                            <iframe src={`data:application/pdf;base64,${directiveFile.base64}`} className="w-full h-full" title="Văn bản chỉ đạo"></iframe>
-                        ) : (
-                            <p className="p-4">Không thể xem trước.</p>
-                        )}
+                        <h4 className="font-semibold text-center mb-2">Phân tích VB Chỉ đạo</h4>
+                        <div className="w-full h-full min-h-[75vh] border rounded-md bg-white p-4 overflow-y-auto">
+                            {directiveAnalysis ? (
+                                <pre className="whitespace-pre-wrap text-slate-800 text-sm font-sans">{directiveAnalysis}</pre>
+                            ) : (
+                                <p className="text-slate-500 text-center">Không có bản phân tích nào được lưu cho văn bản này.</p>
+                            )}
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                                <h5 className="font-semibold text-xs text-slate-600 uppercase mb-2">Tệp chỉ đạo gốc</h5>
+                                <ul className="list-disc list-inside text-sm text-slate-700">
+                                    {directiveFiles.map((file, index) => (
+                                        <li key={index}>{file.name}</li>
+                                    ))}
+                                </ul>
+                            </div>
                         </div>
                     </div>
                      <div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData } from '../types';
 import { getDocumentContent } from '../utils/documentGenerator';
 import { getDefaultTemplate } from '../data/defaultTemplates';
@@ -23,9 +23,9 @@ declare global {
 export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, data, customTemplateContent, onRestart, onBackToManager, isEditing, onBack }) => {
     const [copySuccess, setCopySuccess] = useState('');
     const contentRef = useRef<HTMLDivElement>(null);
+    const [isTableFocused, setIsTableFocused] = useState(false);
 
     const documentContent = useMemo(() => {
-        // Use custom template if provided, otherwise fall back to default
         const templateToUse = customTemplateContent ?? getDefaultTemplate(template.key, data.subTemplateKey);
         if (!templateToUse) {
              return `<div style="text-align: center; color: red; padding: 2rem;">Lỗi: Không tìm thấy mẫu phù hợp cho loại văn bản này.</div>`;
@@ -34,6 +34,115 @@ export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, 
     }, [template, data, customTemplateContent]);
 
     const isHtml = /^\s*</.test(documentContent);
+
+    // --- Editor Functions ---
+    const applyFormat = (command: string, value?: string) => {
+        document.execCommand(command, false, value);
+        contentRef.current?.focus();
+    };
+
+    const applyBlockStyle = (style: { [key: string]: string }) => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        let node = selection.getRangeAt(0).startContainer;
+        while (node && node !== contentRef.current) {
+            if (node.nodeType === 1) {
+                const element = node as HTMLElement;
+                const display = window.getComputedStyle(element).display;
+                if (display === 'block' || element.tagName === 'P' || element.tagName === 'DIV') {
+                    Object.assign(element.style, style);
+                    break;
+                }
+            }
+            node = node.parentNode;
+        }
+        contentRef.current?.focus();
+    };
+
+    const insertTable = () => {
+        const rowsStr = prompt("Nhập số hàng:", "3");
+        const colsStr = prompt("Nhập số cột:", "3");
+        const rows = rowsStr ? parseInt(rowsStr) : 0;
+        const cols = colsStr ? parseInt(colsStr) : 0;
+
+        if (rows > 0 && cols > 0) {
+            let tableHTML = '<table style="border-collapse: collapse; width: 100%; border: 1px solid #ccc;"><thead><tr>';
+            for (let j = 0; j < cols; j++) {
+                tableHTML += `<th style="border: 1px solid #ccc; padding: 8px; background-color: #f2f2f2;">Tiêu đề ${j + 1}</th>`;
+            }
+            tableHTML += '</tr></thead><tbody>';
+            for (let i = 0; i < rows - 1; i++) {
+                tableHTML += '<tr>';
+                for (let j = 0; j < cols; j++) {
+                    tableHTML += '<td style="border: 1px solid #ccc; padding: 8px;">&nbsp;</td>';
+                }
+                tableHTML += '</tr>';
+            }
+            tableHTML += '</tbody></table><p>&nbsp;</p>';
+            applyFormat('insertHTML', tableHTML);
+        }
+    };
+
+    const getCellAndTable = (): { cell: HTMLTableCellElement | null, row: HTMLTableRowElement | null, table: HTMLTableElement | null } => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return { cell: null, row: null, table: null };
+        let node = selection.getRangeAt(0).startContainer;
+        let cell = null, row = null, table = null;
+        while (node && node !== contentRef.current) {
+            if (node.nodeName === 'TD' || node.nodeName === 'TH') cell = node as HTMLTableCellElement;
+            if (node.nodeName === 'TR') row = node as HTMLTableRowElement;
+            if (node.nodeName === 'TABLE') { table = node as HTMLTableElement; break; }
+            node = node.parentNode;
+        }
+        return { cell, row, table };
+    };
+
+    const addRowAfter = () => {
+        const { row, table } = getCellAndTable();
+        if (row && table) {
+            const newRow = table.insertRow(row.rowIndex + 1);
+            for (let i = 0; i < row.cells.length; i++) {
+                const newCell = newRow.insertCell(i);
+                newCell.innerHTML = '&nbsp;';
+                newCell.style.border = '1px solid #ccc';
+                newCell.style.padding = '8px';
+            }
+        }
+    };
+
+    const addColumnAfter = () => {
+        const { cell, table } = getCellAndTable();
+        if (cell && table) {
+            const cellIndex = cell.cellIndex;
+            for (let i = 0; i < table.rows.length; i++) {
+                // FIX: Corrected typo from `constcurrentRow` to `const currentRow`.
+                const currentRow = table.rows[i];
+                const newCell = currentRow.insertCell(cellIndex + 1);
+                newCell.innerHTML = '&nbsp;';
+                newCell.style.border = '1px solid #ccc';
+                newCell.style.padding = '8px';
+                if (currentRow.parentElement?.tagName === 'THEAD') {
+                    newCell.outerHTML = `<th style="border: 1px solid #ccc; padding: 8px; background-color: #f2f2f2;">Tiêu đề mới</th>`;
+                }
+            }
+        }
+    };
+
+    const checkTableFocus = useCallback(() => {
+        const { table } = getCellAndTable();
+        setIsTableFocused(!!table);
+    }, []);
+
+    useEffect(() => {
+        const editor = contentRef.current;
+        if (editor) {
+            const handleFocusChange = () => setTimeout(checkTableFocus, 0);
+            document.addEventListener('selectionchange', handleFocusChange);
+            return () => document.removeEventListener('selectionchange', handleFocusChange);
+        }
+    }, [checkTableFocus]);
+    
+    // --- End Editor Functions ---
 
     const getContentForExport = (): string => {
         return contentRef.current ? contentRef.current.innerHTML : documentContent;
@@ -160,6 +269,44 @@ export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, 
             </div>
 
             <div className="bg-white p-4 sm:p-8 rounded-lg shadow-lg border border-slate-200 relative">
+                 <div className="sticky top-0 z-10 bg-slate-100 border-b border-slate-300 p-2 flex flex-wrap gap-1 items-center mb-4 rounded-md">
+                    <button title="In đậm" onClick={() => applyFormat('bold')} className="p-2 rounded hover:bg-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.25 3a.75.75 0 01.75.75v.5a2.25 2.25 0 002.25 2.25H14a.75.75 0 010 1.5h-1.75a2.25 2.25 0 00-2.25 2.25v.5a.75.75 0 01-1.5 0v-.5A2.25 2.25 0 006.25 10H4.5a.75.75 0 010-1.5h1.75A2.25 2.25 0 008.5 6.25v-.5a.75.75 0 01.75-.75zM8.5 12.25a.75.75 0 00-1.5 0v.5A2.25 2.25 0 014.75 15H3a.75.75 0 000 1.5h1.75a2.25 2.25 0 012.25-2.25v-.5a.75.75 0 00-.75-.75zM12.5 11.5a.75.75 0 01.75.75v.5a2.25 2.25 0 002.25 2.25H17a.75.75 0 010 1.5h-1.75a2.25 2.25 0 00-2.25 2.25v.5a.75.75 0 01-1.5 0v-.5a2.25 2.25 0 00-2.25-2.25H9a.75.75 0 010-1.5h1.75A2.25 2.25 0 0013 12.25v-.5a.75.75 0 01-.5-.75z" /></svg>
+                    </button>
+                    <button title="In nghiêng" onClick={() => applyFormat('italic')} className="p-2 rounded hover:bg-slate-200">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11.087 4.135a.75.75 0 01.326 1.39l-4 9a.75.75 0 01-1.39-.326l4-9a.75.75 0 011.064-.314z" /></svg>
+                    </button>
+                    <div className="h-5 border-l border-slate-300 mx-1"></div>
+                    <select onChange={(e) => applyFormat('fontSize', e.target.value)} className="bg-transparent p-1 border-0 rounded text-sm focus:ring-1 focus:ring-blue-500">
+                        <option value="4">Cỡ chữ</option>
+                        <option value="2">Nhỏ</option>
+                        <option value="3">Vừa</option>
+                        <option value="5">Lớn</option>
+                        <option value="6">Rất lớn</option>
+                    </select>
+                    <select onChange={(e) => applyBlockStyle({ lineHeight: e.target.value })} className="bg-transparent p-1 border-0 rounded text-sm focus:ring-1 focus:ring-blue-500">
+                        <option value="">Giãn dòng</option>
+                        <option value="1">1.0</option>
+                        <option value="1.5">1.5</option>
+                        <option value="1.8">1.8</option>
+                        <option value="2">2.0</option>
+                    </select>
+                    <div className="h-5 border-l border-slate-300 mx-1"></div>
+                    <button title="Thêm bảng" onClick={insertTable} className="p-2 rounded hover:bg-slate-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V4a1 1 0 00-1-1H3zm0 2h14v2H3V5zm0 4h14v2H3V9zm0 4h14v2H3v-2z" clipRule="evenodd" /></svg>
+                    </button>
+                    {isTableFocused && (
+                        <>
+                            <button title="Thêm hàng bên dưới" onClick={addRowAfter} className="p-2 rounded hover:bg-slate-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm13 5a1 1 0 00-1-1H4a1 1 0 00-1 1v2a1 1 0 001 1h12a1 1 0 001-1v-2zM9 15v1H8v-1h1z" /></svg>
+                            </button>
+                            <button title="Thêm cột bên phải" onClick={addColumnAfter} className="p-2 rounded hover:bg-slate-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h2a1 1 0 001-1V4a1 1 0 00-1-1H4zM8 3a1 1 0 00-1 1v12a1 1 0 001 1h2a1 1 0 001-1V4a1 1 0 00-1-1H8zm5 12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4a1 1 0 011-1h2a1 1 0 011 1v11zM15 9h1v1h-1V9z" /></svg>
+                            </button>
+                        </>
+                    )}
+                </div>
+
                 <div className="mb-6 flex flex-wrap gap-2 justify-center sm:justify-end">
                     <button
                         onClick={handleOpenInGoogleDocs}

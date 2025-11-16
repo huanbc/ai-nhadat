@@ -536,33 +536,78 @@ QUAN TRỌNG: Chỉ trả về nội dung văn bản thuần túy. KHÔNG thêm 
     }
 };
 
+export const analyzeDirectiveDocuments = async (files: UploadedFile[]): Promise<string> => {
+    const prompt = `Bạn là một trợ lý hành chính AI chuyên nghiệp tại Việt-Nam. Nhiệm vụ của bạn là phân tích và tóm tắt (các) văn bản chỉ đạo được cung cấp (công văn, quyết định, thông báo, ...).
+Hãy đọc kỹ TẤT CẢ các tài liệu và đưa ra một bản tóm tắt có cấu trúc Markdown rõ ràng như sau:
+
+**1. Thông tin chung:**
+- **Số/Ký hiệu:** (Trích xuất số và ký hiệu của văn bản, ví dụ: 123/CV-UBND)
+- **Ngày ban hành:** (Trích xuất ngày tháng năm ban hành)
+- **Cơ quan ban hành/Người chỉ đạo:** (Trích xuất tên cơ quan hoặc người có thẩm quyền ký/chỉ đạo)
+
+**2. Nội dung chỉ đạo chính:**
+(Tóm tắt súc tích yêu cầu cốt lõi, mục tiêu chính của văn bản)
+
+**3. Nhiệm vụ cụ thể được giao:**
+(Liệt kê các đầu việc, yêu cầu cụ thể mà người nhận văn bản phải thực hiện)
+
+**4. Thời hạn hoàn thành:**
+(Ghi rõ thời hạn/deadline được nêu trong văn bản. Nếu không có, ghi "Không nêu rõ")
+
+**QUAN TRỌNG:** Nếu có nhiều văn bản, hãy tổng hợp thông tin từ tất cả chúng vào một bản phân tích duy nhất.`;
+
+    const parts: Part[] = [{ text: prompt }];
+    for (const file of files) {
+        parts.push({
+            inlineData: {
+                mimeType: file.mimeType,
+                data: file.base64,
+            },
+        });
+    }
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: parts },
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Lỗi khi gọi Gemini API để phân tích văn bản chỉ đạo:", error);
+        throw new Error("Không thể phân tích văn bản chỉ đạo. Vui lòng thử lại.");
+    }
+};
+
 export const generateDirectiveResponse = async (
-    directiveFile: UploadedFile,
+    directiveFiles: UploadedFile[],
     templateFile: UploadedFile | null,
     userNotes: string
 ): Promise<string> => {
     const parts: Part[] = [];
 
-    const prompt = `Bạn là một trợ lý hành chính chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là soạn thảo một văn bản phản hồi/báo cáo chính thức dựa trên một văn bản chỉ đạo và các ghi chú thực hiện công việc.
+    const prompt = `Bạn là một trợ lý hành chính chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là soạn thảo một văn bản phản hồi/báo cáo chính thức dựa trên (các) văn bản chỉ đạo và các ghi chú thực hiện công việc.
 
 **Phân tích các tài liệu sau:**
-1.  **Văn bản chỉ đạo:** Đây là văn bản từ cấp trên yêu cầu thực hiện công việc.
+1.  **Văn bản chỉ đạo:** Đây là (các) văn bản từ cấp trên yêu cầu thực hiện công việc. Hãy tổng hợp thông tin từ tất cả các văn bản chỉ đạo được cung cấp.
 2.  **Văn bản mẫu (nếu có):** Đây là mẫu định dạng cho văn bản phản hồi. Nếu không có, hãy sử dụng thể thức văn bản hành chính chuẩn của Việt Nam (Quốc hiệu, Tiêu ngữ, Tên cơ quan, Số/Ký hiệu, Địa danh, ngày tháng, Tên loại văn bản, Trích yếu, Kính gửi, nội dung, nơi nhận, chữ ký).
 3.  **Ghi chú của người dùng:** Đây là thông tin về kết quả và quá trình thực hiện công việc.
 
 **Yêu cầu:**
 -   **Tuân thủ mẫu:** Soạn thảo văn bản phản hồi theo đúng mẫu được cung cấp (nếu có).
--   **Trích xuất thông tin:** Lấy các thông tin cần thiết từ văn bản chỉ đạo (như "Kính gửi", số, ký hiệu, ngày tháng, trích yếu) để đưa vào văn bản phản hồi một cách hợp lý.
+-   **Trích xuất thông tin:** Lấy các thông tin cần thiết từ (các) văn bản chỉ đạo (như "Kính gửi", số, ký hiệu, ngày tháng, trích yếu) để đưa vào văn bản phản hồi một cách hợp lý.
 -   **Tổng hợp nội dung:** Chuyển đổi các ghi chú của người dùng thành ngôn ngữ hành chính, trang trọng và đưa vào phần nội dung chính của văn bản phản hồi.
+-   **Định dạng Quốc hiệu:** QUAN TRỌNG: Khi tạo Quốc hiệu, hãy đảm bảo dòng "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM" được in đậm bằng thẻ <strong>.
 -   **Hoàn chỉnh:** Tạo ra một văn bản hoàn chỉnh, sẵn sàng để trình ký.
 
 **ĐẦU RA CHỈ LÀ NỘI DUNG VĂN BẢN PHẢN HỒI HOÀN CHỈNH. KHÔNG THÊM BẤT KỲ LỜI GIẢI THÍCH NÀO.**`;
     
     parts.push({ text: prompt });
 
-    // Add directive file
-    parts.push({ text: "\n\n--- VĂN BẢN CHỈ ĐẠO ---" });
-    parts.push({ inlineData: { mimeType: directiveFile.mimeType, data: directiveFile.base64 } });
+    // Add directive files
+    parts.push({ text: `\n\n--- VĂN BẢN CHỈ ĐẠO (${directiveFiles.length} tệp) ---` });
+    for (const file of directiveFiles) {
+        parts.push({ inlineData: { mimeType: file.mimeType, data: file.base64 } });
+    }
 
     // Add template file if exists
     if (templateFile) {

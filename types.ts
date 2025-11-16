@@ -183,9 +183,10 @@ export interface StoredOfficialDocument {
   id: string;
   createdAt: string;
   title: string;
-  directiveFile: UploadedFile;
+  directiveFiles: { name: string; mimeType: string }[];
   responseContent: string;
   userNotes: string;
+  directiveAnalysis: string;
 }
 
 export interface Procedure {

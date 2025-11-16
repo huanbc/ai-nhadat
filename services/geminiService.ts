@@ -366,3 +366,28 @@ Dựa vào những phân tích và đề xuất trên, hãy viết lại TOÀN B
         throw new Error("Không thể tự động sửa mẫu. Vui lòng thử lại.");
     }
 };
+
+export const extractTextFromPdf = async (file: UploadedFile): Promise<string> => {
+    const prompt = `Bạn là một trợ lý AI chuyên trích xuất văn bản. Nhiệm vụ của bạn là trích xuất TOÀN BỘ nội dung văn bản từ tệp PDF được cung cấp.
+Hãy cố gắng giữ lại định dạng gốc càng nhiều càng tốt, bao gồm cả dấu ngắt dòng và đoạn văn.
+QUAN TRỌNG: Chỉ trả về nội dung văn bản thuần túy. KHÔNG thêm bất kỳ lời giải thích, bình luận hay định dạng markdown nào.`;
+
+    const filePart: Part = {
+        inlineData: {
+            mimeType: file.mimeType,
+            data: file.base64,
+        },
+    };
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: prompt }, filePart] },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Lỗi khi gọi Gemini API để trích xuất văn bản từ PDF:", error);
+        throw new Error("Không thể trích xuất văn bản từ tệp PDF. Vui lòng thử lại với tệp khác hoặc đảm bảo tệp có nội dung văn bản.");
+    }
+};

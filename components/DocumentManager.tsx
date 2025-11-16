@@ -1,22 +1,23 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { StoredDocument, Procedure, UploadedFile, LandPrice } from '../types';
 import { analyzeAndSummarizeDocument, extractPriceDataFromDocument } from '../services/geminiService';
-import { TemplateManager } from './TemplateManager';
 
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'templates' | 'analysis';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'templates' | 'analysis') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis') => void;
+  onBack?: () => void;
 }
 
 type AuthorityLevel = 'all' | 'cấp tỉnh' | 'cấp xã';
 
-export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHome, activeTab, onTabChange }) => {
+export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHome, activeTab, onTabChange, onBack }) => {
   const { documents, deleteDocument } = useDocumentStore();
   const { analyzedDocuments, addAnalyzedDocument, deleteAnalyzedDocument } = useAnalyzedDocumentStore();
   const { customLandPrices, addCustomLandPrices, upsertCustomLandPrice } = useLandPriceStore();
@@ -141,6 +142,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
   };
   
+  const handleDeleteAnalyzedDocument = (id: string, fileName: string) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa bản phân tích của tệp "${fileName}" không? Thao tác này không thể hoàn tác.`)) {
+      deleteAnalyzedDocument(id);
+    }
+  };
+
   const handleLandPriceSearch = () => {
     if (!landPriceSearchQuery.trim()) {
       setLandPriceSearchResults([]);
@@ -429,6 +436,17 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     <div className="max-w-full mx-auto space-y-8">
       {isPricePreviewOpen && previewPrices && renderPricePreviewPopup()}
       {isEditPricePopupOpen && editingPrice && renderEditPricePopup()}
+      
+      {onBack && (
+         <div className="-mb-4">
+            <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                Quay lại Văn bản đã Soạn thảo
+            </button>
+        </div>
+      )}
 
       <div className="mb-8 flex justify-between items-center">
         <div>
@@ -454,7 +472,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
             <TabButton tabId="documents" label="Văn bản đã tạo" />
             <TabButton tabId="prices" label="Giá đất" />
-            <TabButton tabId="templates" label="Quản lý Mẫu" />
           </nav>
        </div>
       
@@ -485,8 +502,21 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 </button>
             </div>
             {documentToAnalyze && !isAnalyzing && (
-              <div className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md">
-                Tệp đã chọn: {documentToAnalyze.name}
+              <div className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center">
+                <span>Tệp đã chọn: {documentToAnalyze.name}</span>
+                <button
+                  onClick={() => {
+                    setDocumentToAnalyze(null);
+                    const input = document.getElementById('document-analyzer-input') as HTMLInputElement;
+                    if (input) input.value = '';
+                  }}
+                  className="p-1 rounded-full text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  aria-label="Xóa tệp đã chọn"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             )}
             <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
@@ -527,7 +557,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         {activeAnalyzedDocId === doc.id ? 'Ẩn' : 'Xem'}
                       </button>
                       <button 
-                        onClick={() => deleteAnalyzedDocument(doc.id)} 
+                        onClick={() => handleDeleteAnalyzedDocument(doc.id, doc.fileName)} 
                         className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
                       >
                         Xóa
@@ -791,10 +821,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 </div>
             </div>
           </div>
-      )}
-
-      {activeTab === 'templates' && (
-        <TemplateManager />
       )}
     </div>
   );

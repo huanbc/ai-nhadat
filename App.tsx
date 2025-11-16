@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { TemplateSelector } from './components/TemplateSelector';
 import { SubTemplateSelector } from './components/SubTemplateSelector';
@@ -7,16 +8,16 @@ import { GeneratedDocument } from './components/GeneratedDocument';
 import { DocumentManager } from './components/DocumentManager';
 import { Header } from './components/Header';
 import { useDocumentStore } from './hooks/useDocumentStore';
-import { useTemplateStore } from './hooks/useTemplateStore';
 import { extractDataForStage } from './services/geminiService';
 import { normalizeAllAddressesInExtractedData } from './utils/addressNormalizer';
 import { DocumentTemplate, ExtractedData, UploadedFiles, Step, StoredDocument, SubTemplateKey, UploadedFile } from './types';
 import { DOCUMENT_TEMPLATES } from './constants';
+import { CustomTemplateUploader } from './components/CustomTemplateUploader';
 
 const SAVE_KEY = 'documentDraftProgress';
 
 type ViewMode = 'creating' | 'managing';
-type ManagerTab = 'documents' | 'procedures' | 'prices' | 'templates' | 'analysis';
+type ManagerTab = 'documents' | 'procedures' | 'prices' | 'analysis';
 
 const generateUploadSequence = (template: DocumentTemplate): string[] => {
     const sequence: string[] = [];
@@ -34,7 +35,7 @@ const generateUploadSequence = (template: DocumentTemplate): string[] => {
 const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>(Step.SELECT_TEMPLATE);
   const [viewMode, setViewMode] = useState<ViewMode>('creating');
-  const [managerTab, setManagerTab] = useState<ManagerTab>('procedures');
+  const [managerTab, setManagerTab] = useState<ManagerTab>('analysis');
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
   const [selectedSubTemplateKey, setSelectedSubTemplateKey] = useState<SubTemplateKey | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles>({});
@@ -43,13 +44,13 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [customTemplateContent, setCustomTemplateContent] = useState<string | null>(null);
 
   // State for sequential upload
   const [uploadSequence, setUploadSequence] = useState<string[]>([]);
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number>(0);
 
   const { saveDocument } = useDocumentStore();
-  const { customTemplates } = useTemplateStore();
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
@@ -104,13 +105,14 @@ const App: React.FC = () => {
             editingDocumentId,
             uploadSequence,
             currentUploadIndex,
+            customTemplateContent,
           };
           localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
       } catch(e) {
          console.error("Could not save to local storage", e);
       }
     }
-  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, isInitializing, editingDocumentId, uploadSequence, currentUploadIndex]);
+  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, isInitializing, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent]);
 
   const handleResume = () => {
      try {
@@ -126,6 +128,7 @@ const App: React.FC = () => {
             setEditingDocumentId(savedState.editingDocumentId);
             setUploadSequence(savedState.uploadSequence || []);
             setCurrentUploadIndex(savedState.currentUploadIndex || 0);
+            setCustomTemplateContent(savedState.customTemplateContent);
             setViewMode('creating');
         }
     } catch (e) {
@@ -150,6 +153,7 @@ const App: React.FC = () => {
     setEditingDocumentId(null);
     setUploadSequence([]);
     setCurrentUploadIndex(0);
+    setCustomTemplateContent(null);
   }
 
   const handleStartNew = () => {
@@ -244,8 +248,47 @@ const App: React.FC = () => {
     }
   };
 
+  const handleStageSkip = () => {
+    const nextIndex = currentUploadIndex + 1;
+    if (nextIndex < uploadSequence.length) {
+        setCurrentUploadIndex(nextIndex);
+    } else {
+        // Last stage was skipped, move to review with existing data
+        setExtractedData(currentExtractedData => {
+            const dataToFinalize = currentExtractedData || {};
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = today.getFullYear();
+            
+            const finalDataWithDate = {
+                ...dataToFinalize,
+                documentDate: dataToFinalize.documentDate || `${day}/${month}/${year}`,
+                subTemplateKey: selectedSubTemplateKey,
+            };
+
+            const normalizedData = normalizeAllAddressesInExtractedData(finalDataWithDate);
+            return normalizedData;
+        });
+        setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
+    }
+  };
+
+
   const handleReviewComplete = (editedData: ExtractedData) => {
-    if (!selectedTemplate) return;
+    setFinalData(editedData); // Save the edited data
+    if(selectedTemplate?.hasSubTemplates) {
+        setCurrentStep(Step.UPLOAD_CUSTOM_TEMPLATE);
+    } else {
+        // For templates without sub-types (like tax forms), skip custom template step
+        handleCustomTemplateUpload(null);
+    }
+  };
+
+  const handleCustomTemplateUpload = (content: string | null) => {
+    setCustomTemplateContent(content); // Can be null to use default
+
+    if (!finalData || !selectedTemplate) return;
 
     const documentToSave: StoredDocument = {
       id: editingDocumentId || Date.now().toString(),
@@ -254,15 +297,15 @@ const App: React.FC = () => {
       templateKey: selectedTemplate.key,
       templateTitle: selectedTemplate.title,
       data: {
-        ...editedData,
+        ...finalData,
         subTemplateKey: selectedSubTemplateKey,
       },
     };
 
     saveDocument(documentToSave);
-    setFinalData(documentToSave.data);
     setCurrentStep(Step.GENERATE_DOCUMENT);
   };
+
 
   const handleEditDocument = (doc: StoredDocument) => {
       const template = DOCUMENT_TEMPLATES.find(t => t.key === doc.templateKey) || null;
@@ -280,10 +323,9 @@ const App: React.FC = () => {
       setViewMode('managing');
   }
 
-  const handleManageTemplates = () => {
+  const handleNavigateToManager = () => {
     setViewMode('managing');
-    setManagerTab('templates');
-  }
+  };
   
   const handleBack = () => {
      switch (currentStep) {
@@ -315,8 +357,15 @@ const App: React.FC = () => {
         case Step.REVIEW_EXTRACTED_DATA:
             setCurrentStep(Step.UPLOAD_DOCUMENTS);
             break;
+        case Step.UPLOAD_CUSTOM_TEMPLATE:
+            setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
+            break;
         case Step.GENERATE_DOCUMENT:
-             setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
+             if(selectedTemplate?.hasSubTemplates) {
+                setCurrentStep(Step.UPLOAD_CUSTOM_TEMPLATE);
+             } else {
+                setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
+             }
              break;
         default:
              setCurrentStep(Step.SELECT_TEMPLATE);
@@ -347,6 +396,7 @@ const App: React.FC = () => {
             uploadStage={uploadSequence[currentUploadIndex]}
             stageIndex={currentUploadIndex}
             totalStages={uploadSequence.length}
+            onSkip={handleStageSkip}
           />
         );
       case Step.REVIEW_EXTRACTED_DATA:
@@ -358,17 +408,25 @@ const App: React.FC = () => {
                 onBack={handleBack}
             />
         );
+      case Step.UPLOAD_CUSTOM_TEMPLATE:
+        return (
+            <CustomTemplateUploader
+                template={selectedTemplate!}
+                subTemplateKey={selectedSubTemplateKey!}
+                onComplete={handleCustomTemplateUpload}
+                onBack={handleBack}
+            />
+        );
       case Step.GENERATE_DOCUMENT:
         return (
             <GeneratedDocument 
                 template={selectedTemplate!}
                 data={finalData!}
+                customTemplateContent={customTemplateContent}
                 onRestart={handleStartNew}
                 onBackToManager={handleBackToManager}
                 isEditing={!!editingDocumentId}
                 onBack={handleBack}
-                customTemplates={customTemplates}
-                onManageTemplates={handleManageTemplates}
             />
         );
       default:
@@ -407,7 +465,7 @@ const App: React.FC = () => {
       {showResumePrompt && renderResumePrompt()}
       <Header
         onStartNew={handleStartNew}
-        onManageDocuments={() => setViewMode('managing')}
+        onManageDocuments={handleNavigateToManager}
         showBackButton={viewMode === 'creating' && currentStep !== Step.SELECT_TEMPLATE}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">

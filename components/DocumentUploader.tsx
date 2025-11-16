@@ -10,6 +10,7 @@ interface DocumentUploaderProps {
   uploadStage: string;
   stageIndex: number;
   totalStages: number;
+  onSkip: () => void;
 }
 
 const FileInput: React.FC<{ label: string; file: UploadedFile | null; onChange: (file: UploadedFile) => void; id: string }> = ({ label, file, onChange, id }) => {
@@ -118,7 +119,7 @@ const getStageLabel = (stage: string): string => {
 }
 
 
-export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, onUpload, isLoading, error, onBack, uploadStage, stageIndex, totalStages }) => {
+export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, onUpload, isLoading, error, onBack, uploadStage, stageIndex, totalStages, onSkip }) => {
     const [files, setFiles] = useState<UploadedFiles>({});
     
     // Clear local files state when the stage changes
@@ -195,11 +196,17 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
 
                 {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md" role="alert">{error}</div>}
 
-                <div className="pt-6 text-center">
+                <div className="pt-6 text-center flex flex-col sm:flex-row justify-center items-center gap-4">
+                     <button
+                        onClick={onSkip}
+                        className="w-full sm:w-auto order-2 sm:order-1 px-8 py-3 text-base font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors"
+                    >
+                        Bỏ qua bước này
+                    </button>
                     <button
                         onClick={handleSubmit}
                         disabled={isUploadButtonDisabled()}
-                        className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="w-full sm:w-auto order-1 sm:order-2 inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                         {isLoading ? (
                             <>

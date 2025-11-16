@@ -1,5 +1,7 @@
-import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey, SubTemplateKey } from '../types';
+
+import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey } from '../types';
 import { generateLPTBForm, generateTNCNForm, generateSDDPNNForm, generateAgriculturalTaxForm } from './taxFormGenerator';
+import { getDefaultTemplate } from '../data/defaultTemplates';
 
 // =================================================================
 // HELPERS - Các hàm trợ giúp (được giữ lại để sử dụng cho placeholder)
@@ -136,7 +138,7 @@ const resolvePath = (obj: any, path: string): any => {
 };
 
 
-export const getDocumentContent = (template: DocumentTemplate, data: ExtractedData, customTemplates: { [key: string]: { [key: string]: string } }): string => {
+export const getDocumentContent = (template: DocumentTemplate, data: ExtractedData, templateString: string): string => {
     // Handle non-customizable templates first
     switch (template.key) {
         case 'tax_declaration_combo': {
@@ -161,21 +163,8 @@ export const getDocumentContent = (template: DocumentTemplate, data: ExtractedDa
     }
 
     // Handle customizable templates
-    if (!template || !data.subTemplateKey) {
-        return "Lỗi: Không tìm thấy mẫu hoặc loại mẫu con.";
-    }
-
-    const templateString = customTemplates[template.key]?.[data.subTemplateKey];
-
     if (!templateString) {
-        const subTemplateTitle = data.subTemplateKey === 'vpcc' ? 'Mẫu VPCC' : data.subTemplateKey === 'ubnd' ? 'Mẫu UBND' : 'Mẫu Rút gọn';
-        return `
-            <div style="text-align: center; padding: 2em; font-family: sans-serif;">
-                <h3 style="color: #d32f2f; font-size: 1.5em;">Chưa có mẫu tùy chỉnh!</h3>
-                <p style="color: #333;">Bạn chưa tải lên <strong>${subTemplateTitle}</strong> cho loại văn bản <strong>"${template.title}"</strong>.</p>
-                <p style="color: #555; margin-top: 1em;">Vui lòng vào mục <strong style="color: #007bff;">Tra cứu</strong> &rarr; <strong style="color: #007bff;">Quản lý Mẫu</strong> để tải lên mẫu văn bản của bạn.</p>
-            </div>
-        `;
+        return "Lỗi: Không có nội dung mẫu để tạo văn bản.";
     }
 
     const dateInfo = getDocumentDateParts(data.documentDate);

@@ -1,16 +1,17 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { DocumentTemplate, ExtractedData } from '../types';
 import { getDocumentContent } from '../utils/documentGenerator';
+import { getDefaultTemplate } from '../data/defaultTemplates';
 
 interface GeneratedDocumentProps {
     template: DocumentTemplate;
     data: ExtractedData;
+    customTemplateContent: string | null;
     onRestart: () => void;
     onBackToManager: () => void;
     isEditing: boolean;
     onBack: () => void;
-    customTemplates: { [key: string]: { [key: string]: string } };
-    onManageTemplates: () => void;
 }
 
 declare global {
@@ -19,11 +20,19 @@ declare global {
     }
 }
 
-export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, data, onRestart, onBackToManager, isEditing, onBack, customTemplates, onManageTemplates }) => {
+export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, data, customTemplateContent, onRestart, onBackToManager, isEditing, onBack }) => {
     const [copySuccess, setCopySuccess] = useState('');
     const contentRef = useRef<HTMLDivElement>(null);
 
-    const documentContent = useMemo(() => getDocumentContent(template, data, customTemplates), [template, data, customTemplates]);
+    const documentContent = useMemo(() => {
+        // Use custom template if provided, otherwise fall back to default
+        const templateToUse = customTemplateContent ?? getDefaultTemplate(template.key, data.subTemplateKey);
+        if (!templateToUse) {
+             return `<div style="text-align: center; color: red; padding: 2rem;">Lỗi: Không tìm thấy mẫu phù hợp cho loại văn bản này.</div>`;
+        }
+        return getDocumentContent(template, data, templateToUse);
+    }, [template, data, customTemplateContent]);
+
     const isHtml = /^\s*</.test(documentContent);
 
     const getContentForExport = (): string => {
@@ -140,7 +149,7 @@ export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, 
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                    Quay lại Chỉnh sửa
+                    Quay lại
                 </button>
             </div>
             <div className="text-center mb-8">
@@ -152,15 +161,6 @@ export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, 
 
             <div className="bg-white p-4 sm:p-8 rounded-lg shadow-lg border border-slate-200 relative">
                 <div className="mb-6 flex flex-wrap gap-2 justify-center sm:justify-end">
-                    {template.hasSubTemplates && (
-                         <button
-                            onClick={onManageTemplates}
-                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
-                            title="Thay đổi các tệp mẫu .html/.txt dùng để tạo ra văn bản này."
-                        >
-                            Thay đổi Mẫu
-                        </button>
-                    )}
                     <button
                         onClick={handleOpenInGoogleDocs}
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"

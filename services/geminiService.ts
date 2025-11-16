@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
-import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData } from "../types";
+import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
 const API_KEY = process.env.API_KEY;
 
@@ -185,16 +185,23 @@ export const extractDataForStage = async (
     }
 };
 
-export const checkAndAnalyzeDocuments = async (files: UploadedFile[], purpose: string, legalDocs: UploadedFile[]): Promise<string> => {
+export const checkAndAnalyzeDocuments = async (
+    files: UploadedFile[], 
+    procedure: Procedure, 
+    taxCheckOptions: { enabled: boolean; source: 'public' | 'internal' },
+    additionalRequest: string,
+    legalDocs: UploadedFile[],
+    internalLandPrices: LandPrice[]
+): Promise<string> => {
     
     const citizenFileNames = files.map(f => f.name).join(', ');
     const legalDocFileNames = legalDocs.map(f => f.name).join(', ');
 
     const initialPrompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam, chuyên thẩm định hồ sơ nhà đất.
 
-**Ngữ cảnh:** Người dùng đang chuẩn bị một bộ hồ sơ cho mục đích sau: "${purpose}".
+**Ngữ cảnh:** Người dùng đang chuẩn bị một bộ hồ sơ cho thủ tục sau: "${procedure.title}".
 
-**Yêu cầu:** Hãy thực hiện 3 bước phân tích sau đây một cách cẩn thận và trả về kết quả dưới dạng một báo cáo có cấu trúc Markdown.`;
+**Yêu cầu:** Hãy thực hiện các bước phân tích sau đây một cách cẩn thận và trả về kết quả dưới dạng một báo cáo có cấu trúc Markdown.`;
 
     const allParts: Part[] = [];
 
@@ -225,8 +232,8 @@ export const checkAndAnalyzeDocuments = async (files: UploadedFile[], purpose: s
         });
     }
 
-    // Add the rest of the instructions
-    const instructions = `
+    let stepCounter = 3;
+    let finalInstructions = `
 **Bước 1: KIỂM TRA TÍNH NHẤT QUÁN CỦA THÔNG TIN (Trong hồ sơ công dân)**
 - So sánh chéo thông tin cá nhân (Họ và tên, Ngày sinh, Số CCCD/CMND, Địa chỉ thường trú) và thông tin tài sản (Số thửa, Tờ bản đồ, Địa chỉ thửa đất, Diện tích) trên TẤT CẢ các tài liệu trong **Hồ sơ của công dân**.
 - Liệt kê TẤT CẢ những điểm không nhất quán, dù là nhỏ nhất. Nêu rõ thông tin khác nhau ở tài liệu nào.
@@ -236,30 +243,81 @@ export const checkAndAnalyzeDocuments = async (files: UploadedFile[], purpose: s
 - **Nếu có "Tài liệu pháp lý tham chiếu" được cung cấp:** Hãy sử dụng các tài liệu này làm **NGUỒN THAM CHIẾU CHÍNH** để đánh giá hồ sơ của công dân.
 - **Nếu không có "Tài liệu pháp lý tham chiếu":** Hãy sử dụng kiến thức chung và công cụ tìm kiếm để tra cứu quy định pháp luật hiện hành của Việt Nam.
 - Dựa vào căn cứ trên, hãy đánh giá:
-  a. **Tính đầy đủ:** Bộ hồ sơ của công dân đã có đủ các loại giấy tờ cần thiết cho thủ tục "${purpose}" chưa? Nếu thiếu, hãy liệt kê những giấy tờ cần bổ sung.
+  a. **Tính đầy đủ:** Bộ hồ sơ của công dân đã có đủ các loại giấy tờ cần thiết cho thủ tục "${procedure.title}" chưa? Các giấy tờ yêu cầu theo quy định là: ${procedure.documents.map(d => `"${d}"`).join(', ')}. Nếu thiếu, hãy liệt kê những giấy tờ cần bổ sung.
   b. **Tính hợp lệ:** Xem xét nội dung các tài liệu trong hồ sơ công dân. Có điều khoản nào bất thường, mâu thuẫn, hoặc không tuân thủ theo quy định không? Ví dụ: Thông tin trên sổ đỏ có bị tẩy xóa, mờ không? Hợp đồng có thiếu chữ ký các bên liên quan không? Thời hạn sử dụng đất còn hiệu lực không?
 
 **Bước 3: KẾT LUẬN VÀ ĐỀ XUẤT**
 - Đưa ra một kết luận tổng quan về tình trạng của bộ hồ sơ.
-- Đề xuất các bước hành động cụ thể cho người dùng, ví dụ: "Cần làm thủ tục đính chính thông tin trên GCN QSDĐ tại Văn phòng Đăng ký đất đai", "Cần yêu cầu bên Bổ sung giấy xác nhận tình trạng hôn nhân", v.v.
+- Đề xuất các bước hành động cụ thể cho người dùng, ví dụ: "Cần làm thủ tục đính chính thông tin trên GCN QSDĐ tại Văn phòng Đăng ký đất đai", "Cần yêu cầu bên Bổ sung giấy xác nhận tình trạng hôn nhân", v.v.`;
 
+    if (taxCheckOptions.enabled) {
+        stepCounter++;
+        let taxInstruction = '';
+        if (taxCheckOptions.source === 'public') {
+            taxInstruction = `
+**Bước ${stepCounter}: KIỂM TRA TỜ KHAI THUẾ (SỬ DỤNG GOOGLE SEARCH)**
+- **Chỉ thực hiện bước này nếu trong "Hồ sơ của công dân" có các tờ khai thuế (Tờ khai Lệ phí trước bạ, Tờ khai Thuế TNCN).**
+- **Nếu có tờ khai thuế:**
+    1. Trích xuất địa chỉ thửa đất (xã/phường, tên đường/khu vực) từ các tài liệu khác (ví dụ: GCN QSDĐ).
+    2. Sử dụng công cụ tìm kiếm (Google Search) để tra cứu "Bảng giá đất tỉnh Quảng Ninh giai đoạn 2020-2024" cho địa chỉ đã trích xuất.
+    3. So sánh đơn giá đất tra cứu được với giá trị được kê khai trên tờ khai thuế.
+    4. Đưa ra nhận xét về tính hợp lý của số liệu kê khai. Nếu có chênh lệch đáng kể, hãy chỉ ra và lưu ý rằng đây là giá tham khảo theo bảng giá nhà nước, giá thực tế chuyển nhượng có thể khác.
+- **Nếu không có tờ khai thuế:** Hãy ghi rõ "Bỏ qua Bước ${stepCounter} do không tìm thấy tờ khai thuế trong hồ sơ."`;
+        } else { // 'internal'
+            const priceDataContext = `
+\n\n**Cơ sở dữ liệu giá đất nội bộ (để đối chiếu):**
+Dưới đây là Bảng giá đất được cung cấp từ cơ sở dữ liệu của ứng dụng. Hãy chỉ sử dụng dữ liệu này để đối chiếu.
+\`\`\`json
+${JSON.stringify(internalLandPrices, null, 2)}
+\`\`\`
+`;
+            allParts.push({ text: priceDataContext });
+
+            taxInstruction = `
+**Bước ${stepCounter}: KIỂM TRA TỜ KHAI THUẾ (SỬ DỤNG DỮ LIỆU CUNG CẤP)**
+- **Chỉ thực hiện bước này nếu trong "Hồ sơ của công dân" có các tờ khai thuế.**
+- **Nếu có tờ khai thuế:**
+    1. Trích xuất địa chỉ thửa đất từ các tài liệu.
+    2. **Tra cứu trong Bảng giá đất được cung cấp ở trên** để tìm đơn giá đất tương ứng.
+    3. So sánh đơn giá đất tra cứu được với giá trị được kê khai trên tờ khai thuế.
+    4. Đưa ra nhận xét về tính hợp lý của số liệu kê khai.
+- **Nếu không có tờ khai thuế:** Hãy ghi rõ "Bỏ qua Bước ${stepCounter} do không tìm thấy tờ khai thuế trong hồ sơ."`;
+        }
+        finalInstructions += taxInstruction;
+    }
+
+    if (additionalRequest.trim()) {
+        stepCounter++;
+        const additionalRequestInstruction = `
+**Bước ${stepCounter}: YÊU CẦU KIỂM TRA BỔ SUNG**
+- Phân tích và đưa ra nhận xét về yêu cầu sau của người dùng: "${additionalRequest.trim()}"`;
+        finalInstructions += additionalRequestInstruction;
+    }
+
+    const closingRemarks = `
 **QUAN TRỌNG:**
 - Trình bày câu trả lời hoàn toàn bằng tiếng Việt.
 - Sử dụng định dạng Markdown rõ ràng với các tiêu đề đậm (ví dụ: **1. KIỂM TRA TÍNH NHẤT QUÁN**).
 - Đưa ra những nhận xét chính xác, cụ thể và hữu ích.`;
-    allParts.push({ text: instructions });
+
+    finalInstructions += closingRemarks;
+
+    allParts.push({ text: finalInstructions });
 
     if (files.length === 0) {
         throw new Error("Không có tài liệu nào được cung cấp để kiểm tra.");
     }
     
     try {
+        const config: any = {};
+        if (taxCheckOptions.enabled && taxCheckOptions.source === 'public') {
+            config.tools = [{ googleSearch: {} }];
+        }
+        
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: allParts },
-            config: {
-                tools: [{ googleSearch: {} }],
-            },
+            config: config,
         });
 
         return response.text;

@@ -473,7 +473,6 @@ const App: React.FC = () => {
       <Header
         onStartNew={handleStartNew}
         onManageDocuments={handleNavigateToManager}
-        showBackButton={viewMode === 'creating' && currentStep !== Step.SELECT_TEMPLATE}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!isInitializing && !showResumePrompt && (

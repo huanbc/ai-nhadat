@@ -1,11 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { DOCUMENT_TEMPLATES } from '../constants';
-import { DocumentTemplate, DocumentTemplateKey, UploadedFile } from '../types';
+import { DocumentTemplate, DocumentTemplateKey, UploadedFile, Procedure, LandPrice } from '../types';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLegalDocumentStore } from '../hooks/useLegalDocumentStore';
 import { checkAndAnalyzeDocuments } from '../services/geminiService';
+import { useLandPriceStore } from '../hooks/useLandPriceStore';
 
 
 interface TemplateSelectorProps {
@@ -41,15 +42,24 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
   // State for Document Check
   const [checkFiles, setCheckFiles] = useState<UploadedFile[]>([]);
   const [legalDocs, setLegalDocs] = useState<UploadedFile[]>([]); // Newly uploaded legal docs for this session
-  const [checkPurpose, setCheckPurpose] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [checkResponse, setCheckResponse] = useState('');
   const [checkError, setCheckError] = useState('');
-  
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [selectedProcedureId, setSelectedProcedureId] = useState<string>('');
+  const [shouldCheckLandPrice, setShouldCheckLandPrice] = useState(false);
+  const [taxComparisonSource, setTaxComparisonSource] = useState<'public' | 'internal'>('public');
+  const [additionalCheckRequest, setAdditionalCheckRequest] = useState('');
+
+
   // State for Legal Document Library
   const { legalDocuments, addLegalDocument, deleteLegalDocument } = useLegalDocumentStore();
   const [selectedStoredLegalDocIds, setSelectedStoredLegalDocIds] = useState<string[]>([]);
   const [uploadMessage, setUploadMessage] = useState('');
+  
+  // State for Land Prices (for internal check)
+  const { customLandPrices } = useLandPriceStore();
+  const [initialLandPrices, setInitialLandPrices] = useState<LandPrice[]>([]);
 
 
   // State for Document Drafting
@@ -59,6 +69,47 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
     if (!selectedTemplateKey) return null;
     return DOCUMENT_TEMPLATES.find(t => t.key === selectedTemplateKey) || null;
   }, [selectedTemplateKey]);
+
+  useEffect(() => {
+    // Fetch procedures when component mounts and check tab is active
+    const fetchProcedures = async () => {
+        try {
+            const response = await fetch('/data/procedures.json');
+            if (!response.ok) {
+                throw new Error('Failed to load procedures');
+            }
+            const data = await response.json();
+            setProcedures(data);
+        } catch (error) {
+            console.error(error);
+            setCheckError('Không thể tải danh sách thủ tục hành chính.');
+        }
+    };
+     const fetchPrices = async () => {
+        try {
+            const response = await fetch('/data/landPrices.json');
+            if (!response.ok) throw new Error('Failed to load prices');
+            const data = await response.json();
+            const formattedInitial = data.map((p: any, i: number) => ({ ...p, id: `initial-${i}`}));
+            setInitialLandPrices(formattedInitial);
+        } catch (error) {
+            console.error("Failed to load initial land prices", error);
+             setCheckError(prev => prev + ' Không thể tải dữ liệu giá đất.');
+        }
+    };
+
+    if (mode === 'consult' && consultationTab === 'check') {
+        fetchProcedures();
+        fetchPrices();
+    }
+  }, [mode, consultationTab]);
+  
+  const allLandPrices = useMemo(() => {
+    const priceMap = new Map<string, LandPrice>();
+    initialLandPrices.forEach(p => p.id && priceMap.set(p.id, p));
+    customLandPrices.forEach(p => p.id && priceMap.set(p.id, p));
+    return Array.from(priceMap.values());
+  }, [initialLandPrices, customLandPrices]);
 
   const handleConsultationFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -214,8 +265,12 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
     }
   };
   
-    const handleDocumentCheck = async () => {
-    if (checkFiles.length === 0 || !checkPurpose.trim()) return;
+  const handleDocumentCheck = async () => {
+    const selectedProcedure = procedures.find(p => p.id === selectedProcedureId);
+    if (checkFiles.length === 0 || !selectedProcedure) {
+      setCheckError("Vui lòng tải lên hồ sơ và chọn một thủ tục để kiểm tra.");
+      return;
+    }
     setIsChecking(true);
     setCheckError('');
     setCheckResponse('');
@@ -223,7 +278,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
         const selectedStoredDocs = legalDocuments.filter(doc => selectedStoredLegalDocIds.includes(doc.id));
         const combinedLegalDocs = [...legalDocs, ...selectedStoredDocs];
         
-        const result = await checkAndAnalyzeDocuments(checkFiles, checkPurpose, combinedLegalDocs);
+        const taxCheckOptions = {
+            enabled: shouldCheckLandPrice,
+            source: taxComparisonSource,
+        };
+
+        const internalPricesToPass = taxCheckOptions.enabled && taxComparisonSource === 'internal' ? allLandPrices : [];
+
+        const result = await checkAndAnalyzeDocuments(checkFiles, selectedProcedure, taxCheckOptions, additionalCheckRequest, combinedLegalDocs, internalPricesToPass);
         setCheckResponse(result);
     } catch (err) {
         setCheckError(err instanceof Error ? err.message : 'Đã xảy ra lỗi không xác định khi kiểm tra hồ sơ.');
@@ -354,15 +416,80 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                 </div>
             ) : (
                 <div className="pt-6 flex-grow flex flex-col space-y-4">
-                    <p className="text-slate-600 text-sm">Tải lên bộ hồ sơ của bạn (CCCD, sổ đỏ, hợp đồng,...) và nêu rõ mục đích để AI kiểm tra, đối chiếu và chỉ ra các sai sót hoặc thiếu thông tin.</p>
-                     <textarea
-                        value={checkPurpose}
-                        onChange={(e) => setCheckPurpose(e.target.value)}
-                        placeholder="Ví dụ: Hồ sơ làm thủ tục tặng cho QSDĐ từ bố mẹ cho con trai."
-                        className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                        rows={2}
-                        aria-label="Nhập mục đích kiểm tra hồ sơ"
-                    />
+                    <p className="text-slate-600 text-sm">Tải lên bộ hồ sơ của bạn (CCCD, sổ đỏ, hợp đồng,...), chọn thủ tục cần thực hiện để AI kiểm tra, đối chiếu và chỉ ra các sai sót hoặc thiếu thông tin.</p>
+                     <select
+                        value={selectedProcedureId}
+                        onChange={(e) => setSelectedProcedureId(e.target.value)}
+                        className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        aria-label="Chọn thủ tục hành chính"
+                    >
+                        <option value="" disabled>-- Vui lòng chọn thủ tục cần kiểm tra --</option>
+                        {procedures.map(proc => (
+                            <option key={proc.id} value={proc.id}>{proc.title}</option>
+                        ))}
+                    </select>
+                     <div className="flex items-start p-3 bg-slate-50 border border-slate-200 rounded-md">
+                        <div className="flex items-center h-5">
+                            <input
+                                type="checkbox"
+                                id="check-land-price"
+                                checked={shouldCheckLandPrice}
+                                onChange={(e) => setShouldCheckLandPrice(e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="ml-3 text-sm">
+                            <label htmlFor="check-land-price" className="font-medium text-slate-700">
+                                Kiểm tra Tờ khai Thuế
+                            </label>
+                            <p className="text-xs text-slate-500">Đối chiếu giá trị kê khai trên tờ khai thuế với bảng giá đất.</p>
+                            {shouldCheckLandPrice && (
+                                <div className="mt-3 space-y-2">
+                                    <div className="flex items-center">
+                                        <input
+                                            id="compare-public"
+                                            name="comparison-source"
+                                            type="radio"
+                                            value="public"
+                                            checked={taxComparisonSource === 'public'}
+                                            onChange={() => setTaxComparisonSource('public')}
+                                            className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="compare-public" className="ml-2 block text-xs font-medium text-slate-600">
+                                            Đối chiếu với Bảng giá đất nhà nước (dùng Google Search)
+                                        </label>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <input
+                                            id="compare-internal"
+                                            name="comparison-source"
+                                            type="radio"
+                                            value="internal"
+                                            checked={taxComparisonSource === 'internal'}
+                                            onChange={() => setTaxComparisonSource('internal')}
+                                            className="h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="compare-internal" className="ml-2 block text-xs font-medium text-slate-600">
+                                            Đối chiếu với cơ sở dữ liệu giá đất của ứng dụng
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div>
+                        <label htmlFor="additional-request" className="block text-sm font-medium text-slate-700">
+                            Yêu cầu kiểm tra bổ sung (Tùy chọn)
+                        </label>
+                        <textarea
+                            id="additional-request"
+                            value={additionalCheckRequest}
+                            onChange={(e) => setAdditionalCheckRequest(e.target.value)}
+                            placeholder="Ví dụ: Kiểm tra xem thông tin thừa kế có phù hợp với di chúc đính kèm không?"
+                            className="mt-1 w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                            rows={3}
+                        />
+                    </div>
                     <div>
                         <label htmlFor="check-files-input" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer border border-dashed border-slate-300 text-center p-4 rounded-md">
                             Tải lên Hồ sơ của Công dân (CCCD, Sổ đỏ, Hợp đồng,...)
@@ -388,7 +515,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                     </div>
                      <div className="pt-2 space-y-3">
                         <label htmlFor="legal-docs-input" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100 cursor-pointer border border-dashed border-amber-300 text-center p-4 rounded-md">
-                            Tải lên Tài liệu Pháp lý để đối chiếu
+                            (Tùy chọn) Tải lên Tài liệu Pháp lý để đối chiếu
                             <span className="block text-xs font-normal mt-1">Tệp mới sẽ được tự động lưu vào thư viện bên dưới.</span>
                         </label>
                          <input
@@ -450,7 +577,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                     </div>
                     <button
                         onClick={handleDocumentCheck}
-                        disabled={isChecking || checkFiles.length === 0 || !checkPurpose.trim()}
+                        disabled={isChecking || checkFiles.length === 0 || !selectedProcedureId}
                         className="mt-4 w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                         {isChecking ? 'Đang kiểm tra...' : 'Kiểm tra Hồ sơ'}
@@ -516,7 +643,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
     <div className="max-w-7xl mx-auto">
       <div className="text-center mb-10">
         <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Trợ lý Pháp lý Nhà đất AI
+          AI Trợ lý Nhà đất
         </h2>
         <p className="mt-4 text-lg text-slate-600">
           Tham vấn, tra cứu và tự động tạo hợp đồng, văn bản nhà đất chỉ trong vài phút.

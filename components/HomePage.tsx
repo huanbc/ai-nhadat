@@ -11,7 +11,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onStart }) => {
         <main className="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
             <div className="text-center max-w-4xl mx-auto">
                 <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
-                    Trợ lý Nhà đất AI
+                    AI Trợ lý Nhà đất
                 </h1>
                 <p className="mt-6 text-lg leading-8 text-slate-600">
                     Ứng dụng giúp soạn thảo văn bản và hợp đồng nhà đất một cách nhanh chóng. Tự động trích xuất thông tin từ các tài liệu như CCCD, Giấy chứng nhận quyền sử dụng đất và điền vào mẫu có sẵn, sau đó cho phép người dùng xem lại, chỉnh sửa và sao chép nội dung hoàn chỉnh.

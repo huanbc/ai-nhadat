@@ -166,6 +166,11 @@ const App: React.FC = () => {
     setIsInitializing(false);
   };
 
+  const handleGoToHomePage = () => {
+    resetState();
+    setAppStarted(false);
+  };
+
   const handleTemplateSelect = (template: DocumentTemplate) => {
     setSelectedTemplate(template);
     setUploadedFiles({});
@@ -471,7 +476,7 @@ const App: React.FC = () => {
     <div className="bg-slate-50 min-h-screen text-slate-800">
       {showResumePrompt && renderResumePrompt()}
       <Header
-        onStartNew={handleStartNew}
+        onGoHome={handleGoToHomePage}
         onManageDocuments={handleNavigateToManager}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">

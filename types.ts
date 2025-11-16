@@ -179,6 +179,14 @@ export interface StoredLegalDocument {
   contentHash: string; // To check for duplicates
 }
 
+export interface StoredOfficialDocument {
+  id: string;
+  createdAt: string;
+  title: string;
+  directiveFile: UploadedFile;
+  responseContent: string;
+  userNotes: string;
+}
 
 export interface Procedure {
   id: string;

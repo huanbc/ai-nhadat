@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { DOCUMENT_TEMPLATES } from '../constants';
@@ -7,6 +8,7 @@ import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLegalDocumentStore } from '../hooks/useLegalDocumentStore';
 import { checkAndAnalyzeDocuments } from '../services/geminiService';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
+import { DirectiveResponseGenerator } from './DirectiveResponseGenerator';
 
 
 interface TemplateSelectorProps {
@@ -27,7 +29,7 @@ const stringToHash = (str: string): string => {
 
 export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) => {
   const [mode, setMode] = useState<'select' | 'consult' | 'draft'>('select');
-  const [consultationTab, setConsultationTab] = useState<'q&a' | 'check'>('q&a');
+  const [consultationTab, setConsultationTab] = useState<'q&a' | 'check' | 'response'>('q&a');
 
   // State for AI Q&A
   const [prompt, setPrompt] = useState('');
@@ -334,7 +336,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
   );
 
   const renderConsultation = () => {
-    const TabButton: React.FC<{ tabId: 'q&a' | 'check', label: string }> = ({ tabId, label }) => (
+    const TabButton: React.FC<{ tabId: 'q&a' | 'check' | 'response', label: string }> = ({ tabId, label }) => (
         <button
            onClick={() => setConsultationTab(tabId)}
            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 ${
@@ -361,10 +363,11 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                 <nav className="-mb-px flex space-x-4" aria-label="Tabs">
                     <TabButton tabId="q&a" label="Hỏi đáp Nhanh" />
                     <TabButton tabId="check" label="Kiểm tra Hồ sơ" />
+                    <TabButton tabId="response" label="Phản hồi Văn bản Chỉ đạo" />
                 </nav>
             </div>
 
-            {consultationTab === 'q&a' ? (
+            {consultationTab === 'q&a' && (
                  <div className="pt-6 flex-grow flex flex-col space-y-4">
                     <p className="text-slate-600 text-sm">Hỏi đáp trực tiếp với AI. Bạn có thể đính kèm một tài liệu để AI trả lời chính xác hơn.</p>
                     <textarea
@@ -414,7 +417,8 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                         {isConsulting ? 'Đang xử lý...' : 'Gửi câu hỏi'}
                     </button>
                 </div>
-            ) : (
+            )}
+            {consultationTab === 'check' && (
                 <div className="pt-6 flex-grow flex flex-col space-y-4">
                     <p className="text-slate-600 text-sm">Tải lên bộ hồ sơ của bạn (CCCD, sổ đỏ, hợp đồng,...), chọn thủ tục cần thực hiện để AI kiểm tra, đối chiếu và chỉ ra các sai sót hoặc thiếu thông tin.</p>
                      <select
@@ -582,6 +586,11 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
                     >
                         {isChecking ? 'Đang kiểm tra...' : 'Kiểm tra Hồ sơ'}
                     </button>
+                </div>
+            )}
+            {consultationTab === 'response' && (
+                <div className="pt-6">
+                    <DirectiveResponseGenerator onBack={() => setConsultationTab('q&a')} />
                 </div>
             )}
         </div>

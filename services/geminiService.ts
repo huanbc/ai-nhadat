@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -532,5 +533,55 @@ QUAN TRỌNG: Chỉ trả về nội dung văn bản thuần túy. KHÔNG thêm 
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để trích xuất văn bản từ PDF:", error);
         throw new Error("Không thể trích xuất văn bản từ tệp PDF. Vui lòng thử lại với tệp khác hoặc đảm bảo tệp có nội dung văn bản.");
+    }
+};
+
+export const generateDirectiveResponse = async (
+    directiveFile: UploadedFile,
+    templateFile: UploadedFile | null,
+    userNotes: string
+): Promise<string> => {
+    const parts: Part[] = [];
+
+    const prompt = `Bạn là một trợ lý hành chính chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là soạn thảo một văn bản phản hồi/báo cáo chính thức dựa trên một văn bản chỉ đạo và các ghi chú thực hiện công việc.
+
+**Phân tích các tài liệu sau:**
+1.  **Văn bản chỉ đạo:** Đây là văn bản từ cấp trên yêu cầu thực hiện công việc.
+2.  **Văn bản mẫu (nếu có):** Đây là mẫu định dạng cho văn bản phản hồi. Nếu không có, hãy sử dụng thể thức văn bản hành chính chuẩn của Việt Nam (Quốc hiệu, Tiêu ngữ, Tên cơ quan, Số/Ký hiệu, Địa danh, ngày tháng, Tên loại văn bản, Trích yếu, Kính gửi, nội dung, nơi nhận, chữ ký).
+3.  **Ghi chú của người dùng:** Đây là thông tin về kết quả và quá trình thực hiện công việc.
+
+**Yêu cầu:**
+-   **Tuân thủ mẫu:** Soạn thảo văn bản phản hồi theo đúng mẫu được cung cấp (nếu có).
+-   **Trích xuất thông tin:** Lấy các thông tin cần thiết từ văn bản chỉ đạo (như "Kính gửi", số, ký hiệu, ngày tháng, trích yếu) để đưa vào văn bản phản hồi một cách hợp lý.
+-   **Tổng hợp nội dung:** Chuyển đổi các ghi chú của người dùng thành ngôn ngữ hành chính, trang trọng và đưa vào phần nội dung chính của văn bản phản hồi.
+-   **Hoàn chỉnh:** Tạo ra một văn bản hoàn chỉnh, sẵn sàng để trình ký.
+
+**ĐẦU RA CHỈ LÀ NỘI DUNG VĂN BẢN PHẢN HỒI HOÀN CHỈNH. KHÔNG THÊM BẤT KỲ LỜI GIẢI THÍCH NÀO.**`;
+    
+    parts.push({ text: prompt });
+
+    // Add directive file
+    parts.push({ text: "\n\n--- VĂN BẢN CHỈ ĐẠO ---" });
+    parts.push({ inlineData: { mimeType: directiveFile.mimeType, data: directiveFile.base64 } });
+
+    // Add template file if exists
+    if (templateFile) {
+        parts.push({ text: "\n\n--- VĂN BẢN MẪU ĐỂ SỬ DỤNG ---" });
+        parts.push({ inlineData: { mimeType: templateFile.mimeType, data: templateFile.base64 } });
+    }
+
+    // Add user notes
+    parts.push({ text: `\n\n--- GHI CHÚ CỦA NGƯỜI DÙNG VỀ KẾT QUẢ CÔNG VIỆC --- \n${userNotes}` });
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-pro', // Use a more powerful model for this complex task
+            contents: { parts: parts },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Lỗi khi gọi Gemini API để tạo văn bản phản hồi:", error);
+        throw new Error("Không thể tạo văn bản phản hồi. Vui lòng thử lại.");
     }
 };

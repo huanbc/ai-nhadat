@@ -1,17 +1,19 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
-import { StoredDocument, Procedure, UploadedFile, LandPrice } from '../types';
+import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument } from '../types';
 import { analyzeAndSummarizeDocument, extractPriceDataFromDocument } from '../services/geminiService';
+import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
 
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs') => void;
   onBack?: () => void;
 }
 
@@ -21,10 +23,13 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const { documents, deleteDocument } = useDocumentStore();
   const { analyzedDocuments, addAnalyzedDocument, deleteAnalyzedDocument } = useAnalyzedDocumentStore();
   const { customLandPrices, addCustomLandPrices, upsertCustomLandPrice } = useLandPriceStore();
+  const { officialDocuments, deleteOfficialDocument } = useOfficialDocumentStore();
 
   // State for Document Lookup
   const [citizenNameSearch, setCitizenNameSearch] = useState('');
   const [certNumberSearch, setCertNumberSearch] = useState('');
+  const [parcelNumberSearch, setParcelNumberSearch] = useState('');
+  const [mapSheetNumberSearch, setMapSheetNumberSearch] = useState('');
 
   // State for Land Price Lookup
   const [allLandPrices, setAllLandPrices] = useState<LandPrice[]>([]);
@@ -58,6 +63,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
 
   // State for Analyzed Document Library
   const [activeAnalyzedDocId, setActiveAnalyzedDocId] = useState<string | null>(null);
+  const [viewingOfficialDoc, setViewingOfficialDoc] = useState<StoredOfficialDocument | null>(null);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -133,8 +139,18 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         const searchLower = certNumberSearch.toLowerCase();
         return doc.data.landInfo?.some(l => l.certificateNumber?.toLowerCase().includes(searchLower));
       })
+      .filter(doc => {
+        if (!parcelNumberSearch) return true;
+        const searchLower = parcelNumberSearch.toLowerCase();
+        return doc.data.landInfo?.some(l => l.parcelNumber?.toLowerCase().includes(searchLower));
+      })
+      .filter(doc => {
+        if (!mapSheetNumberSearch) return true;
+        const searchLower = mapSheetNumberSearch.toLowerCase();
+        return doc.data.landInfo?.some(l => l.mapSheetNumber?.toLowerCase().includes(searchLower));
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [documents, citizenNameSearch, certNumberSearch]);
+  }, [documents, citizenNameSearch, certNumberSearch, parcelNumberSearch, mapSheetNumberSearch]);
 
   const handleDelete = (id: string, title: string) => {
     if (window.confirm(`Bạn có chắc chắn muốn xóa văn bản "${title}" không? Thao tác này không thể hoàn tác.`)) {
@@ -145,6 +161,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const handleDeleteAnalyzedDocument = (id: string, fileName: string) => {
     if (window.confirm(`Bạn có chắc chắn muốn xóa bản phân tích của tệp "${fileName}" không? Thao tác này không thể hoàn tác.`)) {
       deleteAnalyzedDocument(id);
+    }
+  };
+
+  const handleDeleteOfficialDocument = (id: string, title: string) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa văn bản trình ký "${title}" không?`)) {
+      deleteOfficialDocument(id);
     }
   };
 
@@ -419,6 +441,44 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     </div>
   );
   
+  const renderOfficialDocViewer = () => {
+    if (!viewingOfficialDoc) return null;
+    const { directiveFile, responseContent, title } = viewingOfficialDoc;
+
+    return (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-slate-200">
+                    <h3 className="text-lg font-semibold text-slate-800 truncate pr-4">{title}</h3>
+                    <button onClick={() => setViewingOfficialDoc(null)} className="text-slate-500 hover:text-slate-800 text-3xl leading-none flex-shrink-0">&times;</button>
+                </div>
+                <div className="flex-grow overflow-auto grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50">
+                    <div>
+                        <h4 className="font-semibold text-center mb-2">Văn bản chỉ đạo</h4>
+                        <div className="w-full h-full min-h-[75vh] border rounded-md bg-white">
+                         {directiveFile.mimeType.startsWith('image/') ? (
+                            <img src={`data:${directiveFile.mimeType};base64,${directiveFile.base64}`} alt="Văn bản chỉ đạo" className="max-w-full h-auto mx-auto"/>
+                        ) : directiveFile.mimeType === 'application/pdf' ? (
+                            <iframe src={`data:application/pdf;base64,${directiveFile.base64}`} className="w-full h-full" title="Văn bản chỉ đạo"></iframe>
+                        ) : (
+                            <p className="p-4">Không thể xem trước.</p>
+                        )}
+                        </div>
+                    </div>
+                     <div>
+                        <h4 className="font-semibold text-center mb-2">Văn bản phản hồi</h4>
+                        <div
+                            dangerouslySetInnerHTML={{ __html: responseContent }}
+                            className="w-full h-full min-h-[75vh] border rounded-md p-4 bg-white overflow-y-auto"
+                            style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: '12pt', lineHeight: 1.6 }}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
+  
   const TabButton: React.FC<{ tabId: DocumentManagerProps['activeTab'], label: string }> = ({ tabId, label }) => (
      <button
         onClick={() => onTabChange(tabId)}
@@ -436,6 +496,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     <div className="max-w-full mx-auto space-y-8">
       {isPricePreviewOpen && previewPrices && renderPricePreviewPopup()}
       {isEditPricePopupOpen && editingPrice && renderEditPricePopup()}
+      {viewingOfficialDoc && renderOfficialDocViewer()}
       
       {onBack && (
          <div className="-mb-4">
@@ -470,7 +531,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
           <nav className="-mb-px flex space-x-4" aria-label="Tabs">
             <TabButton tabId="analysis" label="Phân tích & Thư viện" />
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
-            <TabButton tabId="documents" label="Văn bản đã tạo" />
+            <TabButton tabId="officialDocs" label="VB Trình ký" />
+            <TabButton tabId="documents" label="Tra cứu Hồ sơ" />
             <TabButton tabId="prices" label="Giá đất" />
           </nav>
        </div>
@@ -642,10 +704,34 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             </div>
           </div>
        )}
+
+       {activeTab === 'officialDocs' && (
+         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
+            <h3 className="text-xl font-semibold text-slate-900 mb-4">Văn bản Trình ký đã lưu</h3>
+             {officialDocuments.length > 0 ? (
+              <div className="space-y-3">
+                {officialDocuments.map(doc => (
+                  <div key={doc.id} className="border border-slate-200 rounded-md p-4 bg-slate-50 flex justify-between items-center gap-2">
+                      <div className="flex-grow">
+                          <p className="font-semibold text-slate-800">{doc.title}</p>
+                          <p className="text-xs text-slate-500">Lưu lúc: {new Date(doc.createdAt).toLocaleString('vi-VN')}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => setViewingOfficialDoc(doc)} className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Xem</button>
+                          <button onClick={() => handleDeleteOfficialDocument(doc.id, doc.title)} className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200">Xóa</button>
+                      </div>
+                  </div>
+                ))}
+              </div>
+             ) : (
+                <p className="text-center text-slate-500 py-8">Chưa có văn bản trình ký nào được lưu.</p>
+             )}
+         </div>
+       )}
       
        {activeTab === 'documents' && (
           <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Văn bản đã tạo</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Hồ sơ</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <input
                 type="text"
@@ -659,6 +745,20 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 placeholder="Tra cứu theo Số Giấy chứng nhận..."
                 value={certNumberSearch}
                 onChange={(e) => setCertNumberSearch(e.target.value)}
+                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              />
+               <input
+                type="text"
+                placeholder="Tra cứu theo Số thửa đất..."
+                value={parcelNumberSearch}
+                onChange={(e) => setParcelNumberSearch(e.target.value)}
+                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              />
+               <input
+                type="text"
+                placeholder="Tra cứu theo Tờ bản đồ..."
+                value={mapSheetNumberSearch}
+                onChange={(e) => setMapSheetNumberSearch(e.target.value)}
                 className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
               />
             </div>

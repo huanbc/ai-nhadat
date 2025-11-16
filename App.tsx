@@ -385,7 +385,7 @@ const App: React.FC = () => {
   const renderCreationSteps = () => {
     switch (currentStep) {
       case Step.SELECT_TEMPLATE:
-        return <TemplateSelector onSelect={handleTemplateSelect} />;
+        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} />;
       case Step.SELECT_SUB_TEMPLATE:
         return (
             <SubTemplateSelector 
@@ -439,7 +439,7 @@ const App: React.FC = () => {
             />
         );
       default:
-        return <TemplateSelector onSelect={handleTemplateSelect} />;
+        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} />;
     }
   };
   

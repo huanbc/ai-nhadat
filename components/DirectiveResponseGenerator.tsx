@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef } from 'react';
 import { UploadedFile } from '../types';
 import { generateDirectiveResponse, analyzeDirectiveDocuments } from '../services/geminiService';
@@ -7,6 +8,7 @@ import RichTextEditor from './RichTextEditor';
 
 interface DirectiveResponseGeneratorProps {
     onBack: () => void;
+    onGoHome?: () => void;
 }
 
 declare global {
@@ -15,7 +17,7 @@ declare global {
     }
 }
 
-export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProps> = ({ onBack }) => {
+export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProps> = ({ onBack, onGoHome }) => {
     const [step, setStep] = useState(1);
     const [directiveFiles, setDirectiveFiles] = useState<UploadedFile[]>([]);
     const [templateFile, setTemplateFile] = useState<UploadedFile | null>(null);
@@ -34,6 +36,7 @@ export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProp
 
     const [copySuccess, setCopySuccess] = useState('');
     const { addOfficialDocument } = useOfficialDocumentStore();
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
     
     const handleDirectiveFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -129,7 +132,15 @@ export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProp
             userNotes: userNotes,
             directiveAnalysis: analysisContent || 'Chưa có phân tích.',
         });
-        alert('Đã lưu thành công vào mục "VB Trình ký"!');
+        
+        setShowSuccessPopup(true);
+
+        setTimeout(() => {
+            setShowSuccessPopup(false);
+            if (onGoHome) {
+                onGoHome();
+            }
+        }, 2500);
     };
 
     const handleDownloadPdf = () => {
@@ -192,6 +203,18 @@ export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProp
             </div>
         );
     };
+    
+    const renderSuccessPopup = () => (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-[999]" aria-modal="true" role="dialog">
+            <div className="bg-white p-8 rounded-lg shadow-2xl text-center max-w-sm w-full mx-4 transform transition-all duration-300 scale-100">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2 className="text-2xl font-bold text-slate-800 my-3">Lưu thành công!</h2>
+                <p className="text-slate-600">Văn bản đã được lưu vào mục "VB Trình ký". Tự động quay về trang chủ...</p>
+            </div>
+        </div>
+    );
 
     const renderStep = () => {
         switch(step) {
@@ -308,6 +331,7 @@ export const DirectiveResponseGenerator: React.FC<DirectiveResponseGeneratorProp
 
     return (
         <div className="flex-grow flex flex-col space-y-4">
+            {showSuccessPopup && renderSuccessPopup()}
             {renderPreviewModal()}
             <p className="text-slate-600 text-sm">Soạn thảo văn bản phản hồi/báo cáo dựa trên văn bản chỉ đạo của cấp trên. AI sẽ phân tích chỉ đạo, kết hợp với nội dung bạn cung cấp để tạo ra văn bản hoàn chỉnh theo mẫu.</p>
             {renderStep()}

@@ -1,12 +1,5 @@
-
-import React, { useRef, useEffect } from 'react';
-
-// Define SunEditor type for global scope
-declare global {
-    interface Window {
-        suneditor: any;
-    }
-}
+import React, { useRef, useMemo } from 'react';
+import JoditEditor from 'jodit-react';
 
 interface RichTextEditorProps {
     initialContent: string;
@@ -15,66 +8,51 @@ interface RichTextEditorProps {
     minHeight?: string;
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ initialContent, onChange, height = 'auto', minHeight = '500px' }) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const editorInstanceRef = useRef<any>(null);
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ initialContent, onChange, minHeight = '70vh' }) => {
+    const editor = useRef(null);
 
-    useEffect(() => {
-        if (textareaRef.current) {
-            const editor = window.suneditor.create(textareaRef.current, {
-                buttonList: [
-                    ['undo', 'redo'],
-                    ['font', 'fontSize', 'formatBlock'],
-                    ['paragraphStyle', 'blockquote'],
-                    ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript'],
-                    ['fontColor', 'hiliteColor', 'textStyle'],
-                    ['removeFormat'],
-                    ['outdent', 'indent'],
-                    ['align', 'horizontalRule', 'list', 'lineHeight'],
-                    ['table', 'link', 'image'],
-                    ['fullScreen', 'showBlocks', 'codeView'],
-                    ['preview', 'print'],
-                ],
-                height: height,
-                minHeight: minHeight,
-                placeholder: 'Nhập nội dung ở đây...',
-                defaultStyle: "font-family: 'Times New Roman', Times, serif; font-size: 14pt; line-height: 1.8;",
-                resizingBar: true,
-                imageResizing: true,
-                imageWidth: 'auto',
-            });
-
-            editor.onChange = (contents: string) => {
-                onChange(contents);
-            };
-            
-            editorInstanceRef.current = editor;
-            
-            // Set initial content after initialization
-            if (initialContent) {
-                editor.setContents(initialContent);
+    const config = useMemo(() => ({
+        readonly: false,
+        placeholder: 'Soạn thảo nội dung ở đây...',
+        minHeight: minHeight,
+        iframe: true, // QUAN TRỌNG: Dùng iframe để cách ly style
+        iframeStyle: `
+            body {
+                font-family: 'Times New Roman', Times, serif;
+                font-size: 14pt;
+                line-height: 1.8;
+                color: #000;
+                margin: 2cm 2cm 2cm 3cm;
             }
-        }
+        `,
+        language: 'vi',
+        toolbarAdaptive: false,
+        buttons: [
+            'undo', 'redo', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'superscript', 'subscript', '|',
+            'ul', 'ol', '|',
+            'outdent', 'indent',  '|',
+            'font', 'fontsize', 'brush', 'paragraph', '|',
+            'image', 'table', 'link', '|',
+            'align', 'hr', '|',
+            'copyformat', 'fullsize', 'print', 'source'
+        ],
+    }), [minHeight]);
 
-        return () => {
-            if (editorInstanceRef.current) {
-                editorInstanceRef.current.destroy();
-                editorInstanceRef.current = null;
-            }
-        };
-    }, []);
-
-    useEffect(() => {
-        // Update content editor when initialContent prop changes,
-        // but only if it's different from the current editor content to avoid loops.
-        if (editorInstanceRef.current && initialContent !== editorInstanceRef.current.getContents()) {
-             editorInstanceRef.current.setContents(initialContent);
-        }
-    }, [initialContent]);
-
+    // Sử dụng onBlur để cập nhật state thay vì onChange để tối ưu hiệu năng
+    const handleBlur = (newContent: string) => {
+        onChange(newContent);
+    };
 
     return (
-        <textarea ref={textareaRef} style={{ display: 'none' }} />
+        <JoditEditor
+            ref={editor}
+            value={initialContent}
+            config={config}
+            onBlur={handleBlur}
+            onChange={() => {}} // Có thể để trống nếu đã dùng onBlur
+        />
     );
 };
 

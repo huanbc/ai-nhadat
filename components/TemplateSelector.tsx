@@ -13,6 +13,7 @@ import { DirectiveResponseGenerator } from './DirectiveResponseGenerator';
 
 interface TemplateSelectorProps {
   onSelect: (template: DocumentTemplate) => void;
+  onGoHome?: () => void;
 }
 
 // Simple hash function for content checking
@@ -27,7 +28,7 @@ const stringToHash = (str: string): string => {
 };
 
 
-export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) => {
+export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, onGoHome }) => {
   const [mode, setMode] = useState<'select' | 'consult' | 'draft'>('select');
   const [consultationTab, setConsultationTab] = useState<'q&a' | 'check' | 'response'>('q&a');
 
@@ -590,7 +591,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect }) 
             )}
             {consultationTab === 'response' && (
                 <div className="pt-6">
-                    <DirectiveResponseGenerator onBack={() => setConsultationTab('q&a')} />
+                    <DirectiveResponseGenerator onBack={() => setConsultationTab('q&a')} onGoHome={onGoHome} />
                 </div>
             )}
         </div>

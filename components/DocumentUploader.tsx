@@ -13,7 +13,15 @@ interface DocumentUploaderProps {
   onSkip: () => void;
 }
 
-const FileInput: React.FC<{ label: string; file: UploadedFile | null; onChange: (file: UploadedFile) => void; id: string }> = ({ label, file, onChange, id }) => {
+interface FileInputProps {
+    label: string;
+    file: UploadedFile | null;
+    onChange: (file: UploadedFile) => void;
+    id: string;
+    onPreview: (file: UploadedFile) => void;
+}
+
+const FileInput: React.FC<FileInputProps> = ({ label, file, onChange, id, onPreview }) => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
@@ -41,19 +49,36 @@ const FileInput: React.FC<{ label: string; file: UploadedFile | null; onChange: 
                 <input id={id} type="file" className="hidden" accept="image/png, image/jpeg, image/webp, application/pdf" onChange={handleFileChange} />
             </label>
             {file && (
-                <div className="mt-4 text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md">
-                   {file.name}
+                <div className="mt-4 text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center gap-2">
+                   <span className="truncate flex-grow text-left">{file.name}</span>
+                   <div className="flex items-center space-x-2 flex-shrink-0">
+                       <button
+                           type="button"
+                           onClick={(e) => { e.preventDefault(); onPreview(file); }}
+                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-100 px-2 py-1 rounded"
+                       >
+                           Xem trước
+                       </button>
+                   </div>
                 </div>
             )}
         </div>
     );
 };
 
-const MultiFileInput: React.FC<{ label: string; files: UploadedFile[]; onChange: (files: UploadedFile[]) => void; id: string }> = ({ label, files, onChange, id }) => {
+interface MultiFileInputProps {
+    label: string;
+    files: UploadedFile[];
+    onChange: (files: UploadedFile[]) => void;
+    id: string;
+    onPreview: (file: UploadedFile) => void;
+}
+
+const MultiFileInput: React.FC<MultiFileInputProps> = ({ label, files, onChange, id, onPreview }) => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFiles = e.target.files;
         if (selectedFiles) {
-            const newFiles: UploadedFile[] = []; // Start with an empty array for the current batch
+            const newFiles: UploadedFile[] = [];
             let filesToProcess = selectedFiles.length;
 
             Array.from(selectedFiles).forEach((file: File) => {
@@ -67,12 +92,13 @@ const MultiFileInput: React.FC<{ label: string; files: UploadedFile[]; onChange:
                     });
                     filesToProcess--;
                     if (filesToProcess === 0) {
-                        onChange(newFiles); // Only call onChange when all files are processed
+                        onChange([...files, ...newFiles]); // Append new files to existing ones
                     }
                 };
                 reader.readAsDataURL(file);
             });
         }
+        e.target.value = ''; // Reset input to allow re-uploading the same file
     };
 
     const handleRemoveFile = (index: number) => {
@@ -94,9 +120,18 @@ const MultiFileInput: React.FC<{ label: string; files: UploadedFile[]; onChange:
             {files.length > 0 && (
                 <div className="mt-4 space-y-2 text-left">
                     {files.map((file, index) => (
-                         <div key={index} className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center">
-                           <span>{file.name}</span>
-                           <button onClick={() => handleRemoveFile(index)} className="text-red-500 hover:text-red-700">&times;</button>
+                         <div key={index} className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center gap-2">
+                           <span className="truncate flex-grow">{file.name}</span>
+                           <div className="flex items-center space-x-2 flex-shrink-0">
+                               <button
+                                   type="button"
+                                   onClick={(e) => { e.preventDefault(); onPreview(file); }}
+                                   className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-100 px-2 py-1 rounded"
+                               >
+                                   Xem trước
+                               </button>
+                               <button onClick={() => handleRemoveFile(index)} className="text-red-500 hover:text-red-700 text-lg leading-none">&times;</button>
+                           </div>
                         </div>
                     ))}
                 </div>
@@ -121,8 +156,8 @@ const getStageLabel = (stage: string): string => {
 
 export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, onUpload, isLoading, error, onBack, uploadStage, stageIndex, totalStages, onSkip }) => {
     const [files, setFiles] = useState<UploadedFiles>({});
+    const [previewFile, setPreviewFile] = useState<UploadedFile | null>(null);
     
-    // Clear local files state when the stage changes
     useEffect(() => {
         setFiles({});
     }, [uploadStage]);
@@ -133,6 +168,10 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
 
     const handleSubmit = () => {
         onUpload(files);
+    };
+
+    const handlePreview = (file: UploadedFile) => {
+        setPreviewFile(file);
     };
 
     const isUploadButtonDisabled = () => {
@@ -159,7 +198,8 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
                             id={stageKey} 
                             label={label} 
                             files={ (files[stageKey] as UploadedFile[] || []) } 
-                            onChange={(newFiles) => handleFileChange(stageKey, newFiles)} 
+                            onChange={(newFiles) => handleFileChange(stageKey, newFiles)}
+                            onPreview={handlePreview}
                         />;
             case 'heirsConfirmation':
                 return <FileInput 
@@ -167,15 +207,43 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
                             label={label} 
                             file={ (files[stageKey] as UploadedFile | null) } 
                             onChange={(file) => handleFileChange(stageKey, file)} 
+                            onPreview={handlePreview}
                         />
             default:
                 return <p>Giai đoạn tải lên không hợp lệ.</p>
         }
     }
+    
+    const renderPreviewModal = () => {
+        if (!previewFile) return null;
+
+        const handleClose = () => setPreviewFile(null);
+
+        return (
+            <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                    <div className="flex justify-between items-center p-4 border-b border-slate-200">
+                        <h3 className="text-lg font-semibold text-slate-800 truncate pr-4">{previewFile.name}</h3>
+                        <button onClick={handleClose} className="text-slate-500 hover:text-slate-800 text-3xl leading-none flex-shrink-0">&times;</button>
+                    </div>
+                    <div className="flex-grow overflow-auto p-4 bg-slate-50">
+                        {previewFile.mimeType.startsWith('image/') ? (
+                            <img src={`data:${previewFile.mimeType};base64,${previewFile.base64}`} alt="Xem trước" className="max-w-full h-auto mx-auto"/>
+                        ) : previewFile.mimeType === 'application/pdf' ? (
+                            <iframe src={`data:application/pdf;base64,${previewFile.base64}`} className="w-full h-full min-h-[75vh]" title="Xem trước PDF"></iframe>
+                        ) : (
+                            <p className="text-slate-600 text-center py-10">Không thể xem trước loại tệp này.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
 
     return (
         <div className="max-w-4xl mx-auto">
+            {renderPreviewModal()}
             <div className="text-left mb-8">
                 <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 mb-4 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">

@@ -1,4 +1,5 @@
 
+
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -166,6 +167,15 @@ export interface StoredAnalyzedDocument {
   createdAt: string;
   fileName: string;
   analysisContent: string;
+}
+
+export interface StoredLegalDocument {
+  id: string;
+  createdAt: string;
+  fileName: string;
+  base64: string;
+  mimeType: string;
+  contentHash: string; // To check for duplicates
 }
 
 

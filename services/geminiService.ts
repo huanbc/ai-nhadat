@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData } from "../types";
 
@@ -181,6 +182,90 @@ export const extractDataForStage = async (
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API:", error);
         throw new Error("Không thể phân tích tài liệu. Vui lòng kiểm tra lại hình ảnh và thử lại.");
+    }
+};
+
+export const checkAndAnalyzeDocuments = async (files: UploadedFile[], purpose: string, legalDocs: UploadedFile[]): Promise<string> => {
+    
+    const citizenFileNames = files.map(f => f.name).join(', ');
+    const legalDocFileNames = legalDocs.map(f => f.name).join(', ');
+
+    const initialPrompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam, chuyên thẩm định hồ sơ nhà đất.
+
+**Ngữ cảnh:** Người dùng đang chuẩn bị một bộ hồ sơ cho mục đích sau: "${purpose}".
+
+**Yêu cầu:** Hãy thực hiện 3 bước phân tích sau đây một cách cẩn thận và trả về kết quả dưới dạng một báo cáo có cấu trúc Markdown.`;
+
+    const allParts: Part[] = [];
+
+    // Add initial prompt part
+    allParts.push({ text: initialPrompt });
+
+    // Add citizen files description and parts
+    allParts.push({ text: `\n\n**Hồ sơ của công dân cần thẩm định:**\n- ${citizenFileNames}\n` });
+    files.forEach(file => {
+        allParts.push({
+            inlineData: {
+                mimeType: file.mimeType,
+                data: file.base64,
+            }
+        });
+    });
+
+    // Add legal docs description and parts if they exist
+    if (legalDocs.length > 0) {
+        allParts.push({ text: `\n\n**Tài liệu pháp lý tham chiếu (Dùng làm căn cứ chính):**\n- ${legalDocFileNames}\n` });
+        legalDocs.forEach(file => {
+            allParts.push({
+                inlineData: {
+                    mimeType: file.mimeType,
+                    data: file.base64,
+                }
+            });
+        });
+    }
+
+    // Add the rest of the instructions
+    const instructions = `
+**Bước 1: KIỂM TRA TÍNH NHẤT QUÁN CỦA THÔNG TIN (Trong hồ sơ công dân)**
+- So sánh chéo thông tin cá nhân (Họ và tên, Ngày sinh, Số CCCD/CMND, Địa chỉ thường trú) và thông tin tài sản (Số thửa, Tờ bản đồ, Địa chỉ thửa đất, Diện tích) trên TẤT CẢ các tài liệu trong **Hồ sơ của công dân**.
+- Liệt kê TẤT CẢ những điểm không nhất quán, dù là nhỏ nhất. Nêu rõ thông tin khác nhau ở tài liệu nào.
+- Nếu tất cả thông tin đều khớp, hãy ghi rõ: "Thông tin trên các tài liệu nhất quán."
+
+**Bước 2: KIỂM TRA TÍNH ĐẦY ĐỦ VÀ HỢP LỆ**
+- **Nếu có "Tài liệu pháp lý tham chiếu" được cung cấp:** Hãy sử dụng các tài liệu này làm **NGUỒN THAM CHIẾU CHÍNH** để đánh giá hồ sơ của công dân.
+- **Nếu không có "Tài liệu pháp lý tham chiếu":** Hãy sử dụng kiến thức chung và công cụ tìm kiếm để tra cứu quy định pháp luật hiện hành của Việt Nam.
+- Dựa vào căn cứ trên, hãy đánh giá:
+  a. **Tính đầy đủ:** Bộ hồ sơ của công dân đã có đủ các loại giấy tờ cần thiết cho thủ tục "${purpose}" chưa? Nếu thiếu, hãy liệt kê những giấy tờ cần bổ sung.
+  b. **Tính hợp lệ:** Xem xét nội dung các tài liệu trong hồ sơ công dân. Có điều khoản nào bất thường, mâu thuẫn, hoặc không tuân thủ theo quy định không? Ví dụ: Thông tin trên sổ đỏ có bị tẩy xóa, mờ không? Hợp đồng có thiếu chữ ký các bên liên quan không? Thời hạn sử dụng đất còn hiệu lực không?
+
+**Bước 3: KẾT LUẬN VÀ ĐỀ XUẤT**
+- Đưa ra một kết luận tổng quan về tình trạng của bộ hồ sơ.
+- Đề xuất các bước hành động cụ thể cho người dùng, ví dụ: "Cần làm thủ tục đính chính thông tin trên GCN QSDĐ tại Văn phòng Đăng ký đất đai", "Cần yêu cầu bên Bổ sung giấy xác nhận tình trạng hôn nhân", v.v.
+
+**QUAN TRỌNG:**
+- Trình bày câu trả lời hoàn toàn bằng tiếng Việt.
+- Sử dụng định dạng Markdown rõ ràng với các tiêu đề đậm (ví dụ: **1. KIỂM TRA TÍNH NHẤT QUÁN**).
+- Đưa ra những nhận xét chính xác, cụ thể và hữu ích.`;
+    allParts.push({ text: instructions });
+
+    if (files.length === 0) {
+        throw new Error("Không có tài liệu nào được cung cấp để kiểm tra.");
+    }
+    
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: allParts },
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Lỗi khi gọi Gemini API để kiểm tra hồ sơ:", error);
+        throw new Error("Không thể kiểm tra bộ hồ sơ. Vui lòng thử lại với hình ảnh rõ nét hơn hoặc một file khác.");
     }
 };
 

@@ -13,6 +13,7 @@ import { normalizeAllAddressesInExtractedData } from './utils/addressNormalizer'
 import { DocumentTemplate, ExtractedData, UploadedFiles, Step, StoredDocument, SubTemplateKey, UploadedFile } from './types';
 import { DOCUMENT_TEMPLATES } from './constants';
 import { CustomTemplateUploader } from './components/CustomTemplateUploader';
+import { HomePage } from './components/HomePage';
 
 const SAVE_KEY = 'documentDraftProgress';
 
@@ -33,6 +34,7 @@ const generateUploadSequence = (template: DocumentTemplate): string[] => {
 
 
 const App: React.FC = () => {
+  const [appStarted, setAppStarted] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<Step>(Step.SELECT_TEMPLATE);
   const [viewMode, setViewMode] = useState<ViewMode>('creating');
   const [managerTab, setManagerTab] = useState<ManagerTab>('analysis');
@@ -56,6 +58,7 @@ const App: React.FC = () => {
   const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   useEffect(() => {
+    if (!appStarted) return; // Don't check for saved state until app is started
     try {
       const savedStateJSON = localStorage.getItem(SAVE_KEY);
       if (savedStateJSON) {
@@ -67,10 +70,10 @@ const App: React.FC = () => {
       console.error("Could not read from local storage", e);
       setIsInitializing(false);
     }
-  }, []);
+  }, [appStarted]);
 
   useEffect(() => {
-    if (isInitializing) return;
+    if (isInitializing || !appStarted) return;
 
     if (currentStep !== Step.SELECT_TEMPLATE || selectedTemplate) {
       try {
@@ -112,7 +115,7 @@ const App: React.FC = () => {
          console.error("Could not save to local storage", e);
       }
     }
-  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, isInitializing, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent]);
+  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, isInitializing, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent, appStarted]);
 
   const handleResume = () => {
      try {
@@ -459,6 +462,10 @@ const App: React.FC = () => {
         </div>
     </div>
   );
+
+  if (!appStarted) {
+    return <HomePage onStart={() => setAppStarted(true)} />;
+  }
 
   return (
     <div className="bg-slate-50 min-h-screen text-slate-800">

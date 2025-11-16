@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey } from '../types';
 import { numberToWords } from '../utils/numberToWords';
@@ -197,10 +198,29 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
                  )}
             </Section>
             
-            {template.key === DocumentTemplateKey.LAND_USE_CHANGE && (
-                <Section title="Thông tin Chuyển mục đích">
+             {(template.key === DocumentTemplateKey.LAND_USE_CHANGE || template.key === DocumentTemplateKey.TAX_EXEMPTION_REQUEST) && (
+                <Section title="Thông tin Bổ sung cho Đơn">
+                    <InputField label="Tên xã/phường nhận đơn" value={editedData.additionalInfo?.communeName || ''} onChange={e => handleAdditionalInfoChange('communeName', e.target.value)} />
+                    
+                    {template.key === DocumentTemplateKey.TAX_EXEMPTION_REQUEST && (
+                         <InputField label="Tên vợ/chồng người làm đơn" value={editedData.partyA?.[0]?.spouseName || ''} onChange={e => {
+                            const newPartyA = [...(editedData.partyA || [])];
+                            if (newPartyA[0]) {
+                                newPartyA[0] = {...newPartyA[0], spouseName: e.target.value };
+                                setEditedData(prev => ({...prev, partyA: newPartyA}));
+                            }
+                        }} />
+                    )}
+
                     <InputField label="Mục đích sử dụng mới" value={editedData.additionalInfo?.newUsagePurpose || ''} onChange={e => handleAdditionalInfoChange('newUsagePurpose', e.target.value)} />
-                    <InputField label="Thời hạn sử dụng mới" value={editedData.additionalInfo?.newUsageTerm || ''} onChange={e => handleAdditionalInfoChange('newUsageTerm', e.target.value)} />
+                     
+                     {template.key === DocumentTemplateKey.LAND_USE_CHANGE && (
+                         <InputField label="Thời hạn sử dụng mới" value={editedData.additionalInfo?.newUsageTerm || ''} onChange={e => handleAdditionalInfoChange('newUsageTerm', e.target.value)} />
+                     )}
+
+                    <InputField label="Căn cứ pháp lý (VD: Quyết định số...)" value={editedData.additionalInfo?.legalBasis || ''} onChange={e => handleAdditionalInfoChange('legalBasis', e.target.value)} />
+                    <InputField label="Đối tượng miễn giảm (nếu có)" value={editedData.additionalInfo?.exemptionCategory || ''} onChange={e => handleAdditionalInfoChange('exemptionCategory', e.target.value)} />
+                    <InputField label="Căn cứ miễn giảm (nếu có)" value={editedData.additionalInfo?.exemptionReason || ''} onChange={e => handleAdditionalInfoChange('exemptionReason', e.target.value)} />
                 </Section>
             )}
 

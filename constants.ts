@@ -83,6 +83,13 @@ export const DOCUMENT_TEMPLATES: DocumentTemplate[] = [
     requiresLandCertificate: true,
   },
   {
+    key: DocumentTemplateKey.TAX_EXEMPTION_REQUEST,
+    title: 'Văn bản Đề nghị Miễn, giảm thuế',
+    description: 'Soạn thảo văn bản đề nghị miễn hoặc giảm tiền sử dụng đất khi chuyển mục đích.',
+    requiredParties: ['partyA'],
+    requiresLandCertificate: true,
+  },
+  {
     key: DocumentTemplateKey.PERSONAL_INFO_CONFIRMATION,
     title: 'Đơn xin Xác nhận Thông tin Nhân thân',
     description: 'Soạn đơn xác nhận thông tin trên CCCD và trên GCN QSDĐ là của cùng một người.',

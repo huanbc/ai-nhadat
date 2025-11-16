@@ -20,6 +20,7 @@ export enum DocumentTemplateKey {
   CERTIFICATE_APPLICATION = 'certificate_application',
   LAND_CHANGE_REGISTRATION = 'land_change_registration',
   LAND_USE_CHANGE = 'land_use_change',
+  TAX_EXEMPTION_REQUEST = 'tax_exemption_request',
   PERSONAL_INFO_CONFIRMATION = 'personal_info_confirmation',
   MATRIMONIAL_PROPERTY = 'matrimonial_property',
 }

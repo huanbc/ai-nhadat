@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { TemplateSelector } from './components/TemplateSelector';
 import { SubTemplateSelector } from './components/SubTemplateSelector';
@@ -20,7 +21,7 @@ import { HomePage } from './components/HomePage';
 const SAVE_KEY = 'documentDraftProgress';
 
 type ViewMode = 'creating' | 'managing';
-type ManagerTab = 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs';
+type ManagerTab = 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits';
 
 const generateUploadSequence = (template: DocumentTemplate): string[] => {
     const sequence: string[] = [];

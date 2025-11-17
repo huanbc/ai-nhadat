@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
@@ -7,13 +9,14 @@ import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument } from '../types';
 import { analyzeAndSummarizeDocument, extractPriceDataFromDocument } from '../services/geminiService';
 import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
+import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
 
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits') => void;
   onBack?: () => void;
 }
 
@@ -64,6 +67,34 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   // State for Analyzed Document Library
   const [activeAnalyzedDocId, setActiveAnalyzedDocId] = useState<string | null>(null);
   const [viewingOfficialDoc, setViewingOfficialDoc] = useState<StoredOfficialDocument | null>(null);
+
+  // State for Admin Unit Lookup
+  const [adminUnitSearch, setAdminUnitSearch] = useState('');
+  const [adminUnitResults, setAdminUnitResults] = useState<{ oldName: string; newName: string }[]>([]);
+
+  const adminUnitSearchData = useMemo(() => {
+    const data: { oldName: string; newName: string }[] = [];
+    for (const newName in QUANG_NINH_ADDRESS_MAPPING) {
+        QUANG_NINH_ADDRESS_MAPPING[newName].forEach(oldName => {
+            data.push({ oldName, newName });
+        });
+    }
+    return data;
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'adminUnits') {
+        if (!adminUnitSearch.trim()) {
+            setAdminUnitResults([]);
+            return;
+        }
+        const searchLower = adminUnitSearch.toLowerCase().trim();
+        const results = adminUnitSearchData.filter(item => 
+            item.oldName.toLowerCase().includes(searchLower)
+        );
+        setAdminUnitResults(results);
+    }
+  }, [adminUnitSearch, activeTab, adminUnitSearchData]);
 
 
   useEffect(() => {
@@ -538,6 +569,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
           <nav className="-mb-px flex space-x-4" aria-label="Tabs">
             <TabButton tabId="analysis" label="Phân tích & Thư viện" />
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
+            <TabButton tabId="adminUnits" label="ĐV Hành chính" />
             <TabButton tabId="officialDocs" label="VB Trình ký" />
             <TabButton tabId="documents" label="Tra cứu Hồ sơ" />
             <TabButton tabId="prices" label="Giá đất" />
@@ -711,6 +743,47 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             </div>
           </div>
        )}
+        
+       {activeTab === 'adminUnits' && (
+        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
+          <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Đơn vị Hành chính mới (Tỉnh Quảng Ninh)</h3>
+          <p className="text-slate-600 text-sm mb-4">Nhập tên xã, phường, thị trấn cũ để tìm đơn vị hành chính mới tương ứng sau khi sắp xếp.</p>
+          <div className="flex flex-col space-y-4">
+            <input
+              type="text"
+              value={adminUnitSearch}
+              onChange={(e) => setAdminUnitSearch(e.target.value)}
+              placeholder="Nhập tên đơn vị hành chính cũ..."
+              className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              aria-label="Tra cứu đơn vị hành chính"
+            />
+            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
+              {adminUnitResults.length > 0 ? (
+                 <table className="w-full text-sm text-left text-slate-800">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-100">
+                    <tr>
+                      <th scope="col" className="px-4 py-2">Đơn vị cũ</th>
+                      <th scope="col" className="px-4 py-2">Đơn vị mới</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUnitResults.map((item, index) => (
+                      <tr key={index} className="bg-white border-b border-slate-200">
+                        <td className="px-4 py-2">{item.oldName}</td>
+                        <td className="px-4 py-2 font-semibold text-blue-800">{item.newName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : adminUnitSearch.trim() ? (
+                <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
+              ) : (
+                <p className="p-4 text-slate-400 text-center mt-4">Nhập tên để bắt đầu tra cứu.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
        {activeTab === 'officialDocs' && (
          <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">

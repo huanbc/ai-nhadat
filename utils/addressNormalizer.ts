@@ -2,7 +2,8 @@
 import { ExtractedData, PartyData } from '../types';
 
 // Ánh xạ thô từ đơn vị hành chính mới sang danh sách các đơn vị cũ.
-const QUANG_NINH_ADDRESS_MAPPING: { [key: string]: string[] } = {
+// FIX: Export QUANG_NINH_ADDRESS_MAPPING to make it available for other modules.
+export const QUANG_NINH_ADDRESS_MAPPING: { [key: string]: string[] } = {
     'xã Quảng La': ['xã Bằng Cả', 'xã Dân Chủ', 'xã Tân Dân', 'xã Quảng La'],
     'xã Thống Nhất': ['xã Vũ Oai', 'xã Hòa Bình', 'xã Thống Nhất', 'xã Đồng Lâm'],
     'xã Hải Hòa': ['xã Hải Lạng', 'xã Hải Hòa'],

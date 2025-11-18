@@ -1,5 +1,4 @@
 
-
 import { DocumentTemplateKey, SubTemplateKey } from '../types';
 
 const transferTemplate = `
@@ -82,6 +81,102 @@ const transferTemplate = `
 </body>
 </html>
 `;
+
+const inheritanceGiftTemplate = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Văn bản Phân chia Di sản Thừa kế và Tặng cho Quyền sử dụng đất</title>
+    <style>
+        body { font-family: 'Times New Roman', Times, serif; font-size: 14pt; line-height: 1.8; }
+        p { text-align: justify; margin: 0 0 1em 0; text-indent: 1.5cm; }
+        .no-indent { text-indent: 0; }
+        .heading { text-align: center; font-weight: bold; }
+        .section-title { text-align: center; font-weight: bold; }
+        .signature-section { page-break-inside: avoid; margin-top: 3em; }
+    </style>
+</head>
+<body>
+    <p class="heading no-indent">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br>Độc lập - Tự do - Hạnh phúc</p>
+    <br>
+    <h2 class="heading no-indent" style="font-size: 16pt;">VĂN BẢN PHÂN CHIA DI SẢN THỪA KẾ<br>VÀ TẶNG CHO QUYỀN SỬ DỤNG ĐẤT</h2>
+    <br>
+    <p>Hôm nay, ngày {{documentDate.day}} tháng {{documentDate.month}} năm {{documentDate.year}}, tại Trung tâm hành chính công xã .........................</p>
+    <p>Chúng tôi gồm có:</p>
+    <div style="text-indent: 0; padding-left: 1.5cm;">
+        <p class="no-indent" style="font-weight: bold;">NHỮNG NGƯỜI THỪA KẾ (Bên A):</p>
+        {{heirs_list}}
+        <br>
+        <p class="no-indent" style="font-weight: bold;">BÊN NHẬN TẶNG CHO (Bên B):</p>
+        {{partyB_list}}
+    </div>
+    
+    <p>Chúng tôi là những người thừa kế theo quy định Pháp luật của:</p>
+    <div style="text-indent: 0; padding-left: 1.5cm;">
+        {{deceasedPersons_list}}
+    </div>
+    <br>
+
+    <h3 class="section-title no-indent">I. VỀ QUAN HỆ THỪA KẾ</h3>
+    <p>Bằng văn bản này, chúng tôi khai đúng sự thật rằng:</p>
+    <p class="no-indent" style="font-weight: bold;">Về quan hệ với người để lại di sản:</p>
+    <p class="no-indent" style="padding-left: 1.5cm;">- Bố đẻ của người để lại di sản: .....................................................</p>
+    <p class="no-indent" style="padding-left: 1.5cm;">- Mẹ đẻ của người để lại di sản: .....................................................</p>
+    <p class="no-indent" style="padding-left: 1.5cm;">- Vợ/chồng của người để lại di sản: .....................................................</p>
+    <p class="no-indent" style="padding-left: 1.5cm;">- Các con đẻ của người để lại di sản gồm:</p>
+    <div style="padding-left: 3cm;">
+        {{heirs_list}}
+    </div>
+    <p>Ngoài ra những người nêu trên, người để lại di sản không có Bố nuôi, Mẹ nuôi, con nuôi và người thừa kế nào khác.</p>
+    <p>Người để lại di sản không có để lại di chúc thừa kế tài sản.</p>
+
+    <h3 class="section-title no-indent">II. VỀ PHÂN CHIA DI SẢN THỪA KẾ</h3>
+    <p class="no-indent" style="font-weight: bold;">2.1. Di sản thừa kế.</p>
+    <p>Di sản mà người để lại di sản để lại là phần quyền sử dụng đất theo quy định của Pháp Luật đối với thửa đất có giấy chứng nhận:</p>
+    <div style="text-indent: 0; padding-left: 1.5cm;">
+        {{landInfo_list}}
+    </div>
+    <p class="no-indent" style="font-weight: bold;">2.2 Thoả thuận phân chia di sản thừa kế.</p>
+    <p>Chúng tôi gồm những người thừa kế nêu trên cùng bàn bạc thống nhất, tự nguyện phân chia và tặng cho di sản thừa kế là phần quyền sử dụng đất mà mỗi người chúng tôi được hưởng theo quy định của pháp luật đối với di sản đã nêu tại mục 2.1 cho Bên B toàn quyền sử dụng và là tài sản riêng của Bên B.</p>
+    
+    <h3 class="section-title no-indent">III. TẶNG CHO QUYỀN SỬ DỤNG ĐẤT</h3>
+    <p>Cũng tại văn bản này, Bên B đồng ý nhận phần di sản từ các đồng thừa kế (Bên A) và gộp phần quyền sử dụng đất của mình theo qui định của pháp luật. Như vậy, toàn bộ tài sản là quyền sử dụng đất nêu tại phần di sản thừa kế là tài sản riêng của Bên B được toàn quyền quản lý, sử dụng, định đoạt đối với tài sản trên và có trách nhiệm đăng ký biến động về quyền sử dụng đất tại cơ quan có thẩm quyền.</p>
+
+    <h3 class="section-title no-indent">IV. QUYỀN VÀ NGHĨA VỤ CỦA NGƯỜI ĐƯỢC HƯỞNG DI SẢN VÀ NHẬN TẶNG CHO</h3>
+    <p>1. Nhận toàn bộ di sản cùng toàn bộ hồ sơ, giấy tờ có liên quan tới di sản nêu tại mục II của văn bản này;</p>
+    <p>2. Nhận toàn bộ phần tài sản cùng toàn bộ hồ sơ, giấy tờ có liên quan tới tài sản nêu tại mục III của văn bản này;</p>
+    <p>3. Hoàn thành thủ tục đăng ký quyền sử dụng di sản theo quy định của pháp luật; đồng thời nộp các khoản thuế, phí có liên quan.</p>
+    <p>4. Thực hiện các nghĩa vụ tài sản của người để lại di sản (nếu có).</p>
+
+    <h3 class="section-title no-indent">V. CHÚNG TÔI XIN CAM ĐOAN</h3>
+    <p>Những thông tin về nhân thân, di sản, giấy tờ và nội dung đã ghi trong văn bản thỏa thuận phân chia di sản này là đúng sự thật và xin hoàn toàn chịu trách nhiệm trước pháp luật;</p>
+    <p>Trước khi chết người để lại di sản không để lại di chúc. Ngoài chúng tôi ra, người để lại di sản không còn người thừa kế nào khác.</p>
+    <p>Chúng tôi cam đoan không giấu người được thừa kế theo quy định của pháp luật. Nếu sau này, ngoài chúng tôi mà có cá nhân, tổ chức nào được hưởng di sản của người để lại di sản thì chúng tôi xin liên đới thanh toán phần tài sản mà cá nhân, tổ chức đó được hưởng theo quy định của pháp luật.</p>
+    <p>Khối tài sản đem thoả thuận phân chia không có tranh chấp, không đảm bảo hay hứa đảm bảo cho việc phải thực hiện bất kỳ nghĩa vụ nào khác theo quy định của pháp luật.</p>
+
+    <h3 class="section-title no-indent">VI. ĐIỀU KHOẢN CUỐI CÙNG</h3>
+    <p>Chúng tôi đã đọc văn bản thỏa thuận phân chia di sản, đã nghe được Người có thẩm quyền chứng thực đọc lại nội dung văn bản và giải thích rõ về quyền và nghĩa vụ của người thừa kế và cam đoan chịu trách nhiệm trước pháp luật về những lời cam đoan trên. Mọi sai trái, gian dối chúng tôi xin hoàn toàn chịu trách nhiệm trước pháp luật;</p>
+    <p>Chúng tôi đồng ý toàn bộ nội dung văn bản cùng nhau thống nhất ký hoặc điểm chỉ vào văn bản này trước mặt của Người có thẩm quyền chứng thực./.</p>
+
+    <div class="signature-section">
+        {{heir_signature_block}}
+    </div>
+    
+    <div class="signature-section">
+        <div style="text-align: center;">
+            <div style="font-weight: bold; margin-top: 2em;">BÊN NHẬN TẶNG CHO</div>
+            <div style="font-style: italic;">(Ký và ghi rõ họ tên)</div>
+            <div style="margin-top: 4em;"><strong>{{partyB[0].fullName}}</strong></div>
+            <div style="margin-top: 4em;"><strong>{{partyB[1].fullName}}</strong></div>
+            <div style="margin-top: 4em;"><strong>{{partyB[2].fullName}}</strong></div>
+        </div>
+    </div>
+    
+</body>
+</html>
+`;
+
 
 const landUseChangeTemplate = `
 <!DOCTYPE html>
@@ -255,6 +350,11 @@ const defaultTemplates: { [key in DocumentTemplateKey]?: { [key in SubTemplateKe
         ubnd: transferTemplate,
         simplified: transferTemplate
     },
+     [DocumentTemplateKey.INHERITANCE_GIFT]: {
+        vpcc: inheritanceGiftTemplate,
+        ubnd: inheritanceGiftTemplate,
+        simplified: inheritanceGiftTemplate,
+    },
     [DocumentTemplateKey.LAND_USE_CHANGE]: landUseChangeTemplate,
     [DocumentTemplateKey.TAX_EXEMPTION_REQUEST]: taxExemptionTemplate,
     // Add other default templates here
@@ -268,6 +368,10 @@ export const getDefaultTemplate = (templateKey: DocumentTemplateKey, subTemplate
     }
     if (typeof templateData === 'object' && subTemplateKey && templateData[subTemplateKey]) {
         return templateData[subTemplateKey] || null;
+    }
+    // Fallback if no subTemplateKey is provided for a template that has them
+    if(typeof templateData === 'object') {
+        return templateData.vpcc || null;
     }
     return null;
 }

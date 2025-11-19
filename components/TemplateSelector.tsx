@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { DOCUMENT_TEMPLATES } from '../constants';
@@ -61,7 +60,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
   const [uploadMessage, setUploadMessage] = useState('');
   
   // State for Land Prices (for internal check)
-  const { customLandPrices } = useLandPriceStore();
+  const { customLandPrices, addCustomLandPrices } = useLandPriceStore();
   const [initialLandPrices, setInitialLandPrices] = useState<LandPrice[]>([]);
 
 
@@ -230,13 +229,19 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       
-      const systemInstruction = `Bạn là một trợ lý pháp lý AI chuyên sâu về luật đất đai Việt Nam. Nhiệm vụ của bạn là phân tích và trả lời các câu hỏi một cách chính xác, ngắn gọn và dễ hiểu cho người không chuyên. Khi trả lời, hãy tập trung vào các bước thực hiện, hồ sơ cần chuẩn bị, và thời gian giải quyết.`;
+      const systemInstruction = `Bạn là một trợ lý pháp lý AI chuyên sâu về Luật Đất đai 2024 tại Việt Nam.
+      
+QUY TẮC QUAN TRỌNG:
+1. Mọi phân tích, tư vấn và trích dẫn luật PHẢI CĂN CỨ vào LUẬT ĐẤT ĐAI 2024 và các Nghị định, Thông tư hướng dẫn thi hành mới nhất.
+2. TUYỆT ĐỐI KHÔNG sử dụng, trích dẫn hoặc tư vấn dựa trên Luật Đất đai 2013 hoặc các văn bản cũ đã hết hiệu lực.
+3. Trừ khi người dùng yêu cầu rõ ràng "so sánh với luật cũ", bạn không được đề cập đến luật cũ.
+4. Khi trả lời, hãy tập trung vào các bước thực hiện, hồ sơ cần chuẩn bị, và thời gian giải quyết theo quy định mới.`;
       
       let requestContents;
       if (consultationFile) {
         requestContents = {
           parts: [
-            { text: `Dựa vào tài liệu được đính kèm, hãy trả lời câu hỏi sau: ${prompt}` },
+            { text: `Dựa vào tài liệu được đính kèm và quy định của Luật Đất đai 2024, hãy trả lời câu hỏi sau: ${prompt}` },
             {
               inlineData: {
                 mimeType: consultationFile.mimeType,
@@ -279,7 +284,13 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     setCheckResponse('');
     try {
         const selectedStoredDocs = legalDocuments.filter(doc => selectedStoredLegalDocIds.includes(doc.id));
-        const combinedLegalDocs = [...legalDocs, ...selectedStoredDocs];
+        const mappedStoredDocs: UploadedFile[] = selectedStoredDocs.map(doc => ({
+            name: doc.fileName,
+            base64: doc.base64,
+            mimeType: doc.mimeType
+        }));
+
+        const combinedLegalDocs = [...legalDocs, ...mappedStoredDocs];
         
         const taxCheckOptions = {
             enabled: shouldCheckLandPrice,
@@ -321,7 +332,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
             </svg>
         </div>
         <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">Tham vấn & Phân tích AI</h3>
-        <p className="mt-2 text-sm text-slate-600">Hỏi đáp pháp lý, kiểm tra đối chiếu và phân tích bộ hồ sơ nhà đất của bạn.</p>
+        <p className="mt-2 text-sm text-slate-600">Hỏi đáp pháp lý, kiểm tra đối chiếu và phân tích bộ hồ sơ nhà đất của bạn theo Luật Đất đai 2024.</p>
       </div>
 
       <div onClick={() => setMode('draft')} className="group cursor-pointer bg-white p-6 rounded-lg shadow-md border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all transform hover:-translate-y-1 flex flex-col items-center text-center">
@@ -358,7 +369,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                 </svg>
                 Quay lại
             </button>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Tham vấn & Phân tích AI</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">Tham vấn & Phân tích AI (Luật Đất đai 2024)</h3>
 
             <div className="border-b border-slate-200">
                 <nav className="-mb-px flex space-x-4" aria-label="Tabs">
@@ -374,7 +385,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                     <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Ví dụ: Thủ tục tặng cho đất cho con cần những giấy tờ gì?"
+                        placeholder="Ví dụ: Theo Luật Đất đai 2024, điều kiện tách thửa là gì?"
                         className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
                         rows={4}
                         aria-label="Nhập câu hỏi tham vấn"
@@ -394,7 +405,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                         className="w-full flex-grow p-3 bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[140px]"
                         aria-live="polite"
                     >
-                        {isConsulting && <p className="text-slate-500 animate-pulse">AI đang suy nghĩ...</p>}
+                        {isConsulting && <p className="text-slate-500 animate-pulse">AI đang tra cứu Luật 2024 và suy nghĩ...</p>}
                         {consultationError && <p className="text-red-600">{consultationError}</p>}
                         {consultationResponse && <pre className="whitespace-pre-wrap text-slate-800 text-sm font-sans">{consultationResponse}</pre>}
                         {!isConsulting && !consultationResponse && !consultationError && <p className="text-slate-400">Kết quả từ AI sẽ hiển thị ở đây.</p>}
@@ -421,7 +432,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
             )}
             {consultationTab === 'check' && (
                 <div className="pt-6 flex-grow flex flex-col space-y-4">
-                    <p className="text-slate-600 text-sm">Tải lên bộ hồ sơ của bạn (CCCD, sổ đỏ, hợp đồng,...), chọn thủ tục cần thực hiện để AI kiểm tra, đối chiếu và chỉ ra các sai sót hoặc thiếu thông tin.</p>
+                    <p className="text-slate-600 text-sm">Tải lên bộ hồ sơ của bạn (CCCD, sổ đỏ, hợp đồng,...), chọn thủ tục cần thực hiện để AI kiểm tra theo quy định của Luật Đất đai 2024.</p>
                      <select
                         value={selectedProcedureId}
                         onChange={(e) => setSelectedProcedureId(e.target.value)}

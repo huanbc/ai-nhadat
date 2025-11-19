@@ -1,5 +1,6 @@
 
 
+
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -67,7 +68,7 @@ const landSchema = {
 // =================================================================
 
 const getPromptAndSchemaForStage = (stage: string, templateKey: DocumentTemplateKey): { prompt: string, schema: any } => {
-    let prompt = `Bạn là một trợ lý pháp lý chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là trích xuất thông tin chính xác từ các tệp hình ảnh hoặc PDF được cung cấp.
+    let prompt = `Bạn là một trợ lý pháp lý chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là trích xuất thông tin chính xác từ các tệp hình ảnh hoặc PDF được cung cấp để phục vụ việc soạn thảo văn bản theo **Luật Đất đai 2024**.
 QUAN TRỌNG: Nếu có nhiều tệp được cung cấp, hãy trích xuất thông tin từ TẤT CẢ các tệp đó và tổng hợp lại vào một danh sách duy nhất. Một tệp PDF duy nhất có thể chứa nhiều trang và thông tin của nhiều người khác nhau; hãy đảm bảo bạn quét toàn bộ tệp và trích xuất tất cả các cá nhân có liên quan.
 
 Vui lòng trả về kết quả dưới dạng một đối tượng JSON duy nhất, không có giải thích hay định dạng markdown.
@@ -198,7 +199,12 @@ export const checkAndAnalyzeDocuments = async (
     const citizenFileNames = files.map(f => f.name).join(', ');
     const legalDocFileNames = legalDocs.map(f => f.name).join(', ');
 
-    const initialPrompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam, chuyên thẩm định hồ sơ nhà đất.
+    const initialPrompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam, chuyên thẩm định hồ sơ nhà đất dựa trên **LUẬT ĐẤT ĐAI 2024** và các văn bản hướng dẫn thi hành mới nhất.
+
+**NGUYÊN TẮC CỐT LÕI:**
+1. Mọi đánh giá về tính hợp lệ, đầy đủ phải dựa trên quy định của **Luật Đất đai 2024** (có hiệu lực từ 01/08/2024).
+2. TUYỆT ĐỐI KHÔNG tham chiếu đến Luật Đất đai 2013 trừ khi người dùng yêu cầu so sánh.
+3. Nếu thủ tục liên quan đến các nghị định, thông tư mới, hãy trích dẫn chính xác.
 
 **Ngữ cảnh:** Người dùng đang chuẩn bị một bộ hồ sơ cho thủ tục sau: "${procedure.title}".
 
@@ -240,12 +246,12 @@ export const checkAndAnalyzeDocuments = async (
 - Liệt kê TẤT CẢ những điểm không nhất quán, dù là nhỏ nhất. Nêu rõ thông tin khác nhau ở tài liệu nào.
 - Nếu tất cả thông tin đều khớp, hãy ghi rõ: "Thông tin trên các tài liệu nhất quán."
 
-**Bước 2: KIỂM TRA TÍNH ĐẦY ĐỦ VÀ HỢP LỆ**
+**Bước 2: KIỂM TRA TÍNH ĐẦY ĐỦ VÀ HỢP LỆ (THEO LUẬT ĐẤT ĐAI 2024)**
 - **Nếu có "Tài liệu pháp lý tham chiếu" được cung cấp:** Hãy sử dụng các tài liệu này làm **NGUỒN THAM CHIẾU CHÍNH** để đánh giá hồ sơ của công dân.
-- **Nếu không có "Tài liệu pháp lý tham chiếu":** Hãy sử dụng kiến thức chung và công cụ tìm kiếm để tra cứu quy định pháp luật hiện hành của Việt Nam.
+- **Nếu không có "Tài liệu pháp lý tham chiếu":** Hãy sử dụng kiến thức về **Luật Đất đai 2024** và các văn bản hướng dẫn mới nhất.
 - Dựa vào căn cứ trên, hãy đánh giá:
   a. **Tính đầy đủ:** Bộ hồ sơ của công dân đã có đủ các loại giấy tờ cần thiết cho thủ tục "${procedure.title}" chưa? Các giấy tờ yêu cầu theo quy định là: ${procedure.documents.map(d => `"${d}"`).join(', ')}. Nếu thiếu, hãy liệt kê những giấy tờ cần bổ sung.
-  b. **Tính hợp lệ:** Xem xét nội dung các tài liệu trong hồ sơ công dân. Có điều khoản nào bất thường, mâu thuẫn, hoặc không tuân thủ theo quy định không? Ví dụ: Thông tin trên sổ đỏ có bị tẩy xóa, mờ không? Hợp đồng có thiếu chữ ký các bên liên quan không? Thời hạn sử dụng đất còn hiệu lực không?
+  b. **Tính hợp lệ:** Xem xét nội dung các tài liệu trong hồ sơ công dân. Có điều khoản nào bất thường, mâu thuẫn, hoặc không tuân thủ theo quy định mới không? Ví dụ: Thời hạn sử dụng đất, điều kiện chuyển nhượng theo Luật 2024.
 
 **Bước 3: KẾT LUẬN VÀ ĐỀ XUẤT**
 - Đưa ra một kết luận tổng quan về tình trạng của bộ hồ sơ.
@@ -299,7 +305,7 @@ ${JSON.stringify(internalLandPrices, null, 2)}
 **QUAN TRỌNG:**
 - Trình bày câu trả lời hoàn toàn bằng tiếng Việt.
 - Sử dụng định dạng Markdown rõ ràng với các tiêu đề đậm (ví dụ: **1. KIỂM TRA TÍNH NHẤT QUÁN**).
-- Đưa ra những nhận xét chính xác, cụ thể và hữu ích.`;
+- Đưa ra những nhận xét chính xác, cụ thể và hữu ích dựa trên Luật Đất đai 2024.`;
 
     finalInstructions += closingRemarks;
 
@@ -330,7 +336,7 @@ ${JSON.stringify(internalLandPrices, null, 2)}
 
 
 export const analyzeAndSummarizeDocument = async (file: UploadedFile): Promise<string> => {
-    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam. Nhiệm vụ của bạn là phân tích một văn bản pháp lý (hợp đồng, quyết định, đơn từ, v.v.) được cung cấp dưới dạng hình ảnh hoặc PDF và đưa ra một bản tóm tắt súc tích, có cấu trúc rõ ràng.
+    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp tại Việt Nam, cập nhật đầy đủ **Luật Đất đai 2024**. Nhiệm vụ của bạn là phân tích một văn bản pháp lý (hợp đồng, quyết định, đơn từ, v.v.) được cung cấp dưới dạng hình ảnh hoặc PDF và đưa ra một bản tóm tắt súc tích, có cấu trúc rõ ràng.
 
 Phân tích kỹ lưỡng tài liệu và trình bày kết quả theo định dạng Markdown sau:
 
@@ -346,8 +352,8 @@ Phân tích kỹ lưỡng tài liệu và trình bày kết quả theo định d
 **3. Nội dung chính:**
 (Tóm tắt những điểm cốt lõi của văn bản. Trả lời các câu hỏi: Văn bản này nói về việc gì? Có những thỏa thuận, quyết định, hoặc yêu cầu chính nào? Bao gồm các thông tin quan trọng như giá trị, diện tích, địa chỉ, ngày tháng quan trọng.)
 
-**4. Lưu ý pháp lý:**
-(Nêu bật những điểm quan trọng cần chú ý từ góc độ pháp lý. Ví dụ: Các nghĩa vụ về thuế, thời hạn cần tuân thủ, điều khoản phạt, những điểm bất thường hoặc có thể gây rủi ro.)
+**4. Lưu ý pháp lý (Dựa trên Luật Đất đai 2024):**
+(Nêu bật những điểm quan trọng cần chú ý từ góc độ pháp lý hiện hành. Ví dụ: Các nghĩa vụ về thuế, thời hạn cần tuân thủ, điều khoản phạt, những điểm bất thường hoặc có thể gây rủi ro theo quy định mới.)
 
 Hãy đảm bảo câu trả lời ngắn gọn, chính xác, và dễ hiểu cho người không chuyên về luật.`;
 
@@ -441,12 +447,12 @@ Trả về một mảng các đối tượng JSON này. Nếu không tìm thấy
 };
 
 export const analyzeTemplateContent = async (templateContent: string, templateTypeTitle: string): Promise<string> => {
-    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp và là chuyên gia về cú pháp mẫu văn bản tại Việt Nam.
+    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp và là chuyên gia về cú pháp mẫu văn bản tại Việt Nam, am hiểu **Luật Đất đai 2024**.
 Nhiệm vụ của bạn là phân tích mẫu văn bản sau đây, được sử dụng cho việc soạn thảo "${templateTypeTitle}".
 
 Hãy kiểm tra các yếu tố sau:
 1.  **Cú pháp Placeholder:** Xác minh rằng tất cả các placeholder (biến giữ chỗ) có dạng \`{{...}}\` là hợp lệ. Các placeholder hợp lệ bao gồm: {{documentDate.day}}, {{partyA_list}}, {{landInfo[0].address}}, v.v. Tìm kiếm các lỗi cú pháp như dấu ngoặc nhọn bị thiếu, sai tên placeholder.
-2.  **Nội dung pháp lý:** Đánh giá ngôn ngữ pháp lý. Mẫu có chứa các điều khoản thiết yếu cho một "${templateTypeTitle}" không? (ví dụ: đối tượng hợp đồng, quyền và nghĩa vụ các bên, điều khoản thanh toán, giải quyết tranh chấp, cam đoan của các bên, hiệu lực hợp đồng). Ngôn từ có rõ ràng, chặt chẽ không?
+2.  **Nội dung pháp lý (Theo Luật Đất đai 2024):** Đánh giá ngôn ngữ và các điều khoản pháp lý. Mẫu có phù hợp với quy định hiện hành của Luật Đất đai 2024 không? (ví dụ: thuật ngữ, căn cứ pháp lý, quyền và nghĩa vụ). Ngôn từ có rõ ràng, chặt chẽ không?
 3.  **Cấu trúc:** Mẫu có cấu trúc logic, dễ đọc không? Nếu là HTML, cấu trúc có hợp lệ không?
 
 **Định dạng đầu ra:**
@@ -470,8 +476,8 @@ Dưới đây là nội dung mẫu cần phân tích:\n\n---\n\n${templateConten
 };
 
 export const fixTemplateContent = async (templateContent: string, analysisResult: string, templateTypeTitle: string): Promise<string> => {
-    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp và là chuyên gia về cú pháp mẫu văn bản HTML tại Việt Nam.
-Nhiệm vụ của bạn là sửa đổi và cải thiện mẫu văn bản được cung cấp, dựa trên kết quả phân tích trước đó.
+    const prompt = `Bạn là một trợ lý pháp lý AI chuyên nghiệp, chuyên gia về cú pháp mẫu văn bản HTML và **Luật Đất đai 2024**.
+Nhiệm vụ của bạn là sửa đổi và cải thiện mẫu văn bản được cung cấp, dựa trên kết quả phân tích trước đó và đảm bảo tuân thủ luật mới nhất.
 
 Dưới đây là nội dung mẫu gốc cho văn bản "${templateTypeTitle}":
 --- TEMPLATE GỐC ---
@@ -483,10 +489,11 @@ Và đây là kết quả phân tích cùng với các đề xuất cải thiệ
 ${analysisResult}
 --- KẾT THÚC PHÂN TÍCH & ĐỀ XUẤT ---
 
-Dựa vào những phân tích và đề xuất trên, hãy viết lại TOÀN BỘ nội dung mẫu để sửa tất cả các lỗi đã được xác định và áp dụng các cải tiến.
+Dựa vào những phân tích và đề xuất trên, hãy viết lại TOÀN BỘ nội dung mẫu để sửa tất cả các lỗi đã được xác định và áp dụng các cải tiến phù hợp với Luật Đất đai 2024.
 
 **QUY TẮC QUAN TRỌNG:**
 -   Đầu ra của bạn PHẢI CHỈ LÀ nội dung mẫu đã được sửa đổi hoàn chỉnh.
+-   Cập nhật các căn cứ pháp lý (nếu có trong mẫu) sang Luật Đất đai 2024, Luật Kinh doanh Bất động sản 2023, Luật Nhà ở 2023.
 -   KHÔNG được thêm bất kỳ lời giải thích, bình luận, hay định dạng markdown nào xung quanh nội dung mẫu.
 -   Đầu ra phải sẵn sàng để sử dụng ngay lập tức.`;
 

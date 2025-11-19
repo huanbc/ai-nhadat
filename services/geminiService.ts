@@ -1,6 +1,7 @@
 
 
 
+
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -635,5 +636,46 @@ export const generateDirectiveResponse = async (
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để tạo văn bản phản hồi:", error);
         throw new Error("Không thể tạo văn bản phản hồi. Vui lòng thử lại.");
+    }
+};
+
+export const quickExtractPersonalInfo = async (file: UploadedFile): Promise<string> => {
+    const prompt = `🌟 Prompt Đề xuất: Trích xuất và Định dạng Thông tin Cá nhân
+Tôi sẽ cung cấp cho bạn một tài liệu dưới dạng [HÌNH ẢNH HOẶC TỆP PDF] chứa danh sách thông tin cá nhân (thông tin trên Căn cước công dân, căn cước hoặc giấy tờ tùy thân).
+
+**YÊU CẦU TRÍCH XUẤT DỮ LIỆU:**
+Hãy đóng vai trò là công cụ trích xuất dữ liệu và nhập liệu.
+1.  **Trích xuất** đầy đủ các trường thông tin sau cho MỖI cá nhân có trong tài liệu:
+    * Họ và tên
+    * Năm sinh
+    * Số CCCD (hoặc CMND/ID)
+    * Ngày cấp
+    * Nơi cấp
+2.  **Xác định** xưng hô phù hợp (Ông/Bà) dựa trên tên (ví dụ: Thị -> Bà; Văn -> Ông).
+3.  **Lưu ý:** Nếu có bất kỳ trường thông tin nào bị thiếu hoặc không rõ ràng, hãy ghi rõ là "(không rõ chi tiết)" cho trường đó.
+
+**ĐỊNH DẠNG ĐẦU RA MONG MUỐN:**
+Sắp xếp dữ liệu thành một danh sách được đánh số thứ tự liên tục. Mỗi mục (mỗi người) phải được trình bày trên một dòng duy nhất và các trường thông tin được ngăn cách bằng dấu phẩy (\`,\`).
+
+**Định dạng chuẩn phải là:**
+[STT]. [Xưng hô]: [Họ và tên], năm sinh: [Năm sinh], Số CCCD: [Số CCCD], ngày cấp: [Ngày cấp], nơi cấp: [Nơi cấp].`;
+
+    const filePart: Part = {
+        inlineData: {
+            mimeType: file.mimeType,
+            data: file.base64,
+        },
+    };
+
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: prompt }, filePart] },
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Lỗi khi gọi Gemini API để trích xuất thông tin nhanh:", error);
+        throw new Error("Không thể trích xuất thông tin. Vui lòng thử lại.");
     }
 };

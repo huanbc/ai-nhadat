@@ -1,11 +1,13 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { DOCUMENT_TEMPLATES } from '../constants';
 import { DocumentTemplate, DocumentTemplateKey, UploadedFile, Procedure, LandPrice } from '../types';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLegalDocumentStore } from '../hooks/useLegalDocumentStore';
-import { checkAndAnalyzeDocuments } from '../services/geminiService';
+import { checkAndAnalyzeDocuments, quickExtractPersonalInfo } from '../services/geminiService';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { DirectiveResponseGenerator } from './DirectiveResponseGenerator';
 
@@ -66,6 +68,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
 
   // State for Document Drafting
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<DocumentTemplateKey | ''>('');
+  
+  // State for Quick Extract
+  const [quickExtractFile, setQuickExtractFile] = useState<UploadedFile | null>(null);
+  const [quickExtractResult, setQuickExtractResult] = useState('');
+  const [isQuickExtracting, setIsQuickExtracting] = useState(false);
+  const [quickExtractError, setQuickExtractError] = useState('');
+  const [copyExtractSuccess, setCopyExtractSuccess] = useState(false);
+
 
   const selectedTemplate = useMemo(() => {
     if (!selectedTemplateKey) return null;
@@ -321,6 +331,44 @@ QUY TẮC QUAN TRỌNG:
     if (selectedTemplate) {
       onSelect(selectedTemplate);
     }
+  };
+
+  const handleQuickExtractFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const base64 = (event.target?.result as string).split(',')[1];
+              setQuickExtractFile({
+                  name: file.name,
+                  base64,
+                  mimeType: file.type,
+              });
+              setQuickExtractError('');
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const handleQuickExtract = async () => {
+      if (!quickExtractFile) return;
+      setIsQuickExtracting(true);
+      setQuickExtractError('');
+      setQuickExtractResult('');
+      try {
+          const result = await quickExtractPersonalInfo(quickExtractFile);
+          setQuickExtractResult(result);
+      } catch (err) {
+          setQuickExtractError(err instanceof Error ? err.message : 'Đã xảy ra lỗi khi trích xuất.');
+      } finally {
+          setIsQuickExtracting(false);
+      }
+  };
+
+  const handleCopyExtractResult = () => {
+      navigator.clipboard.writeText(quickExtractResult);
+      setCopyExtractSuccess(true);
+      setTimeout(() => setCopyExtractSuccess(false), 2000);
   };
 
   const renderSelection = () => (
@@ -641,10 +689,53 @@ QUY TẮC QUAN TRỌNG:
            <button
               onClick={handleStartDrafting}
               disabled={!selectedTemplate}
-              className="mt-auto w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="mt-4 w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Bắt đầu Soạn thảo
             </button>
+
+            {/* Quick Extract Section */}
+            <div className="mt-10 border-t border-slate-200 pt-8">
+                <h4 className="text-lg font-semibold text-slate-900 mb-2">Công cụ hỗ trợ: Trích xuất danh sách thông tin</h4>
+                <p className="text-sm text-slate-600 mb-4">
+                    Tải lên ảnh/PDF chứa thông tin cá nhân (CCCD, danh sách...) để lấy chuỗi văn bản chuẩn.
+                </p>
+                <div className="space-y-3">
+                    <input
+                        type="file"
+                        accept="image/png, image/jpeg, image/webp, application/pdf"
+                        onChange={handleQuickExtractFileChange}
+                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                    />
+                     {quickExtractFile && (
+                        <p className="text-xs text-green-600">Đã chọn: {quickExtractFile.name}</p>
+                    )}
+                    <button
+                        onClick={handleQuickExtract}
+                        disabled={!quickExtractFile || isQuickExtracting}
+                        className="w-full inline-flex justify-center items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                        {isQuickExtracting ? 'Đang trích xuất...' : 'Trích xuất thông tin'}
+                    </button>
+                    {quickExtractError && <p className="text-red-600 text-sm">{quickExtractError}</p>}
+                    {quickExtractResult && (
+                        <div className="mt-3 relative">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Kết quả:</label>
+                            <textarea
+                                value={quickExtractResult}
+                                readOnly
+                                className="w-full h-32 p-2 text-sm border border-slate-300 rounded-md bg-slate-50 font-mono"
+                            />
+                             <button
+                                onClick={handleCopyExtractResult}
+                                className="absolute top-8 right-2 px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                            >
+                                {copyExtractSuccess ? 'Đã copy!' : 'Copy'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
     </div>
   );
 

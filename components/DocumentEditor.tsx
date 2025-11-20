@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey, VehicleData } from '../types';
 import { numberToWords } from '../utils/numberToWords';
@@ -69,6 +67,7 @@ const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyDa
                 <InputField label="Nơi cấp CCCD" value={party.idIssuePlace || ''} onChange={(e) => handleChange('idIssuePlace', e.target.value)} />
                 <InputField label="Quê quán" value={party.placeOfOrigin || ''} onChange={(e) => handleChange('placeOfOrigin', e.target.value)} />
                 <InputField label="Nơi thường trú" value={party.permanentAddress || ''} onChange={(e) => handleChange('permanentAddress', e.target.value)} />
+                <InputField label="Nơi ở hiện tại" value={party.currentAddress || ''} onChange={(e) => handleChange('currentAddress', e.target.value)} />
                 <InputField label="Số điện thoại" value={party.phoneNumber || ''} onChange={(e) => handleChange('phoneNumber', e.target.value)} />
                  {party.dateOfDeath !== undefined && <InputField label="Ngày mất" value={party.dateOfDeath || ''} onChange={(e) => handleChange('dateOfDeath', e.target.value)} />}
             </div>

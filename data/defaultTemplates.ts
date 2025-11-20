@@ -1,6 +1,3 @@
-
-
-
 import { DocumentTemplateKey, SubTemplateKey } from '../types';
 
 const transferTemplate = `
@@ -459,18 +456,19 @@ const vehicleOriginTemplate = `
     <title>Đơn xin xác nhận nguồn gốc phương tiện</title>
     <style>
         body { font-family: 'Times New Roman', Times, serif; font-size: 14pt; line-height: 1.5; margin: 2cm 2cm 2cm 3cm; }
-        p { text-align: justify; margin: 0 0 1em 0; }
+        p { text-align: justify; margin: 0 0 0.5em 0; }
         .center { text-align: center; }
         .bold { font-weight: bold; }
         .italic { font-style: italic; }
-        .header { text-align: center; font-weight: bold; margin-bottom: 1.5em;}
+        .header { text-align: center; font-weight: bold; margin-bottom: 1em;}
         h2 { font-size: 16pt; font-weight: bold; text-align: center; margin: 1em 0; }
+        .checkbox-item { margin-left: 0.5cm; margin-bottom: 0.5em; }
     </style>
 </head>
 <body>
     <div class="header">
-        <p class="bold" style="margin: 0;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-        <p class="bold" style="margin: 0;">Độc lập - Tự do - Hạnh phúc</p>
+        <p style="margin: 0;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+        <p style="margin: 0;">Độc lập - Tự do - Hạnh phúc</p>
     </div>
 
     <h2>ĐƠN XIN XÁC NHẬN NGUỒN GỐC PHƯƠNG TIỆN</h2>
@@ -481,12 +479,12 @@ const vehicleOriginTemplate = `
     <p>Tôi tên là: <span class="bold">{{partyA[0].fullName}}</span></p>
     <p>Sinh ngày: {{partyA[0].dateOfBirth}}</p>
     <p>CMND/CCCD số: {{partyA[0].idNumber}} &nbsp;&nbsp;&nbsp;&nbsp; Cấp ngày: {{partyA[0].idIssueDate}} &nbsp;&nbsp;&nbsp;&nbsp; Nơi cấp: {{partyA[0].idIssuePlace}}</p>
-    <p>Hộ khẩu thường trú: {{partyA[0].permanentAddress}}</p>
+    <p>Nơi thường trú: {{partyA[0].permanentAddress}}</p>
     <p>Chỗ ở hiện tại: {{partyA[0].currentAddress}}</p>
 
     <p>Nay tôi làm đơn này xin UBND xã/phường ............................................... xác nhận nguồn gốc phương tiện sau:</p>
 
-    <div style="margin-left: 1cm;">
+    <div style="margin-left: 1cm; margin-bottom: 0.5em;">
         <p>- Loại phương tiện: {{vehicleInfo[0].type}}</p>
         <p>- Nhãn hiệu: {{vehicleInfo[0].brand}}</p>
         <p>- Màu sơn: {{vehicleInfo[0].color}}</p>
@@ -496,6 +494,12 @@ const vehicleOriginTemplate = `
     </div>
 
     <p><span class="bold">Lý do xin xác nhận:</span></p>
+    <p class="checkbox-item">☐ Mua bán viết tay, không có hóa đơn.</p>
+    <p class="checkbox-item">☐ Xe để lâu năm thất lạc giấy tờ.</p>
+    <p class="checkbox-item">☐ Xe gia truyền/cha mẹ để lại.</p>
+    <p class="checkbox-item">☐ Hợp thức hóa hồ sơ để làm thủ tục đăng ký sang tên.</p>
+    <p class="checkbox-item">☐ Lý do khác: ....................................................................................................</p>
+    
     <p>Tôi xin xác nhận nguồn gốc phương tiện để hoàn thiện thủ tục đăng ký theo quy định.</p>
 
     <p>Tôi xin cam đoan phương tiện không phải tài sản trộm cắp, không tranh chấp và tôi hoàn toàn chịu trách nhiệm trước pháp luật.</p>

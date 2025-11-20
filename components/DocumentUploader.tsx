@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { DocumentTemplate, UploadedFiles, UploadedFile } from '../types';
 
@@ -12,6 +13,7 @@ interface DocumentUploaderProps {
   stageIndex: number;
   totalStages: number;
   onSkip: () => void;
+  onSaveDraft?: () => void;
 }
 
 interface FileInputProps {
@@ -156,7 +158,7 @@ const getStageLabel = (stage: string): string => {
 }
 
 
-export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, onUpload, isLoading, error, onBack, uploadStage, stageIndex, totalStages, onSkip }) => {
+export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, onUpload, isLoading, error, onBack, uploadStage, stageIndex, totalStages, onSkip, onSaveDraft }) => {
     const [files, setFiles] = useState<UploadedFiles>({});
     const [previewFile, setPreviewFile] = useState<UploadedFile | null>(null);
     
@@ -247,17 +249,30 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
     return (
         <div className="max-w-4xl mx-auto">
             {renderPreviewModal()}
-            <div className="text-left mb-8">
-                <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                    </svg>
-                    Quay lại
-                </button>
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Tải lên Tài liệu (Bước {stageIndex + 1}/{totalStages})</h2>
-                <p className="mt-2 text-lg text-slate-600">
-                    Cung cấp hình ảnh hoặc file PDF rõ nét cho: <span className="font-semibold text-blue-700">{getStageLabel(uploadStage)}</span>.
-                </p>
+            <div className="text-left mb-8 flex justify-between items-center">
+                <div>
+                    <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 mb-4 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                        </svg>
+                        Quay lại
+                    </button>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">Tải lên Tài liệu (Bước {stageIndex + 1}/{totalStages})</h2>
+                    <p className="mt-2 text-lg text-slate-600">
+                        Cung cấp hình ảnh hoặc file PDF rõ nét cho: <span className="font-semibold text-blue-700">{getStageLabel(uploadStage)}</span>.
+                    </p>
+                </div>
+                {onSaveDraft && (
+                    <button 
+                        onClick={onSaveDraft}
+                        className="text-sm font-medium text-slate-600 hover:text-blue-600 flex items-center border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                        </svg>
+                        Lưu nháp
+                    </button>
+                )}
             </div>
             
             <div className="space-y-8">

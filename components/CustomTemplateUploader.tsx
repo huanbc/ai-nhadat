@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, SubTemplateKey, UploadedFile } from '../types';
 import { extractTextFromPdf } from '../services/geminiService';
@@ -9,9 +10,10 @@ interface CustomTemplateUploaderProps {
   subTemplateKey: SubTemplateKey;
   onComplete: (content: string | null) => void;
   onBack: () => void;
+  onSaveDraft?: () => void;
 }
 
-export const CustomTemplateUploader: React.FC<CustomTemplateUploaderProps> = ({ template, subTemplateKey, onComplete, onBack }) => {
+export const CustomTemplateUploader: React.FC<CustomTemplateUploaderProps> = ({ template, subTemplateKey, onComplete, onBack, onSaveDraft }) => {
   const [content, setContent] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,17 +86,30 @@ export const CustomTemplateUploader: React.FC<CustomTemplateUploaderProps> = ({ 
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="text-left mb-8">
-        <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 mb-4 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-          </svg>
-          Quay lại Chỉnh sửa Dữ liệu
-        </button>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Sử dụng Mẫu Văn bản</h2>
-        <p className="mt-2 text-lg text-slate-600">
-          Ứng dụng đã tải sẵn mẫu mặc định. Bạn có thể sử dụng mẫu này, hoặc tải lên file mẫu (.pdf, .html, .txt) của riêng bạn.
-        </p>
+      <div className="text-left mb-8 flex justify-between items-center">
+        <div>
+            <button onClick={onBack} className="text-sm font-medium text-blue-600 hover:text-blue-800 mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            Quay lại Chỉnh sửa Dữ liệu
+            </button>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Sử dụng Mẫu Văn bản</h2>
+            <p className="mt-2 text-lg text-slate-600">
+            Ứng dụng đã tải sẵn mẫu mặc định. Bạn có thể sử dụng mẫu này, hoặc tải lên file mẫu (.pdf, .html, .txt) của riêng bạn.
+            </p>
+        </div>
+        {onSaveDraft && (
+            <button 
+                onClick={onSaveDraft}
+                className="text-sm font-medium text-slate-600 hover:text-blue-600 flex items-center border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50"
+            >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                </svg>
+                Lưu nháp
+            </button>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200 space-y-4">

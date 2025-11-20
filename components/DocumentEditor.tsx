@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey, VehicleData } from '../types';
 import { numberToWords } from '../utils/numberToWords';
@@ -10,6 +9,7 @@ interface DocumentEditorProps {
     initialData: ExtractedData;
     onComplete: (editedData: ExtractedData) => void;
     onBack: () => void;
+    onSaveDraft?: () => void;
 }
 
 const getUbndNameFromAddress = (address?: string): string => {
@@ -77,7 +77,7 @@ const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyDa
 };
 
 
-export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initialData, onComplete, onBack }) => {
+export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initialData, onComplete, onBack, onSaveDraft }) => {
     const [editedData, setEditedData] = useState<ExtractedData>(initialData);
 
     useEffect(() => {
@@ -253,7 +253,15 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
                 </Section>
             )}
 
-            <div className="pt-6 text-center">
+            <div className="pt-6 text-center flex flex-col sm:flex-row justify-center gap-4">
+                {onSaveDraft && (
+                     <button
+                        onClick={onSaveDraft}
+                        className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-slate-300 text-base font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
+                    >
+                        Lưu nháp
+                    </button>
+                )}
                 <button
                     onClick={() => onComplete(editedData)}
                     className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

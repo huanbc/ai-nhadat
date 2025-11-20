@@ -74,50 +74,60 @@ const App: React.FC = () => {
     }
   }, [appStarted]);
 
-  useEffect(() => {
-    if (isInitializing || !appStarted) return;
+  // Centralized Save Logic
+  const saveToLocalStorage = useCallback(() => {
+    if (currentStep === Step.SELECT_TEMPLATE && !selectedTemplate) return;
 
-    if (currentStep !== Step.SELECT_TEMPLATE || selectedTemplate) {
-      try {
-          const uploadedFilesMetadata: UploadedFiles = {};
-          for (const key in uploadedFiles) {
-            if (Object.prototype.hasOwnProperty.call(uploadedFiles, key)) {
-              const typedKey = key as keyof UploadedFiles;
-              const fileOrFiles = uploadedFiles[typedKey];
-              if (Array.isArray(fileOrFiles)) {
-                (uploadedFilesMetadata[typedKey] as UploadedFile[]) = fileOrFiles.map(f => ({
-                  name: f.name,
-                  mimeType: f.mimeType,
-                  base64: '', 
-                }));
-              } else if (fileOrFiles) {
-                (uploadedFilesMetadata[typedKey] as UploadedFile) = {
-                  name: (fileOrFiles as UploadedFile).name,
-                  mimeType: (fileOrFiles as UploadedFile).mimeType,
-                  base64: '',
-                };
-              }
+    try {
+        const uploadedFilesMetadata: UploadedFiles = {};
+        for (const key in uploadedFiles) {
+          if (Object.prototype.hasOwnProperty.call(uploadedFiles, key)) {
+            const typedKey = key as keyof UploadedFiles;
+            const fileOrFiles = uploadedFiles[typedKey];
+            if (Array.isArray(fileOrFiles)) {
+              (uploadedFilesMetadata[typedKey] as UploadedFile[]) = fileOrFiles.map(f => ({
+                name: f.name,
+                mimeType: f.mimeType,
+                base64: '', // Strip content to save space
+              }));
+            } else if (fileOrFiles) {
+              (uploadedFilesMetadata[typedKey] as UploadedFile) = {
+                name: (fileOrFiles as UploadedFile).name,
+                mimeType: (fileOrFiles as UploadedFile).mimeType,
+                base64: '',
+              };
             }
           }
+        }
 
-          const stateToSave = {
-            currentStep,
-            selectedTemplate,
-            selectedSubTemplateKey,
-            uploadedFiles: uploadedFilesMetadata,
-            extractedData,
-            finalData,
-            editingDocumentId,
-            uploadSequence,
-            currentUploadIndex,
-            customTemplateContent,
-          };
-          localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
-      } catch(e) {
-         console.error("Could not save to local storage", e);
-      }
+        const stateToSave = {
+          currentStep,
+          selectedTemplate,
+          selectedSubTemplateKey,
+          uploadedFiles: uploadedFilesMetadata,
+          extractedData,
+          finalData,
+          editingDocumentId,
+          uploadSequence,
+          currentUploadIndex,
+          customTemplateContent,
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
+    } catch(e) {
+       console.error("Could not save to local storage", e);
     }
-  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, isInitializing, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent, appStarted]);
+  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent]);
+
+  // Auto-save effect
+  useEffect(() => {
+    if (isInitializing || !appStarted || showResumePrompt) return;
+    saveToLocalStorage();
+  }, [saveToLocalStorage, isInitializing, appStarted, showResumePrompt]);
+
+  const handleManualSaveDraft = () => {
+      saveToLocalStorage();
+      alert("Đã lưu bản nháp thành công! Bạn có thể đóng trình duyệt và tiếp tục sau.");
+  };
 
   const handleResume = () => {
      try {
@@ -407,6 +417,7 @@ const App: React.FC = () => {
             stageIndex={currentUploadIndex}
             totalStages={uploadSequence.length}
             onSkip={handleStageSkip}
+            onSaveDraft={handleManualSaveDraft}
           />
         );
       case Step.REVIEW_EXTRACTED_DATA:
@@ -416,6 +427,7 @@ const App: React.FC = () => {
                 initialData={extractedData!}
                 onComplete={handleReviewComplete}
                 onBack={handleBack}
+                onSaveDraft={handleManualSaveDraft}
             />
         );
       case Step.UPLOAD_CUSTOM_TEMPLATE:
@@ -425,6 +437,7 @@ const App: React.FC = () => {
                 subTemplateKey={selectedSubTemplateKey!}
                 onComplete={handleCustomTemplateUpload}
                 onBack={handleBack}
+                onSaveDraft={handleManualSaveDraft}
             />
         );
       case Step.GENERATE_DOCUMENT:
@@ -437,6 +450,7 @@ const App: React.FC = () => {
                 onBackToManager={handleBackToManager}
                 isEditing={!!editingDocumentId}
                 onBack={handleBack}
+                onSaveDraft={handleManualSaveDraft}
             />
         );
       default:

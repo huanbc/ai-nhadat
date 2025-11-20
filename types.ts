@@ -1,6 +1,7 @@
 
 
 
+
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -24,6 +25,7 @@ export enum DocumentTemplateKey {
   TAX_EXEMPTION_REQUEST = 'tax_exemption_request',
   PERSONAL_INFO_CONFIRMATION = 'personal_info_confirmation',
   MATRIMONIAL_PROPERTY = 'matrimonial_property',
+  VEHICLE_ORIGIN_CONFIRMATION = 'vehicle_origin_confirmation',
 }
 
 // Định nghĩa các loại mẫu con
@@ -36,6 +38,7 @@ export interface DocumentTemplate {
   requiredParties: ('partyA' | 'partyB' | 'heir')[];
   requiresLandCertificate: boolean;
   requiresDeathCertificate?: boolean;
+  requiresVehicleRegistration?: boolean; // New requirement
   acceptsHeirsConfirmation?: boolean;
   acceptsContract?: boolean;
   hasSubTemplates?: boolean; // Thêm thuộc tính để xác định mẫu nào có biến thể
@@ -100,6 +103,17 @@ export interface HouseData {
   ownershipExpiry?: string;
 }
 
+export interface VehicleData {
+  type?: string; // Loại phương tiện (xe máy, ô tô)
+  brand?: string; // Nhãn hiệu
+  color?: string; // Màu sơn
+  chassisNumber?: string; // Số khung
+  engineNumber?: string; // Số máy
+  licensePlate?: string; // Biển số
+  manufactureYear?: string; // Năm sản xuất
+  registeredOwner?: string; // Chủ xe trên giấy tờ (nếu có)
+}
+
 export interface AdditionalTaxInfo {
     propertyOrigin?: string; // Nguồn gốc nhà đất
     actualTransferValue?: string; // Giá trị đất thực tế chuyển giao
@@ -127,6 +141,7 @@ export interface ExtractedData {
   heirs?: PartyData[];
   deceasedPersons?: PartyData[]; 
   landInfo?: LandData[];
+  vehicleInfo?: VehicleData[]; // New vehicle info
   additionalInfo?: AdditionalTaxInfo & RegistrationApplicationInfo & { 
     newUsagePurpose?: string;
     newUsageTerm?: string;
@@ -153,6 +168,7 @@ export interface UploadedFiles {
   deathCertificates?: UploadedFile[];
   heirsConfirmation?: UploadedFile;
   contract?: UploadedFile[];
+  vehicleRegistration?: UploadedFile[]; // New upload type
 }
 
 export interface StoredDocument {

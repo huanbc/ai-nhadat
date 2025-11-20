@@ -1,4 +1,6 @@
 
+
+
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey } from '../types';
 import { generateLPTBForm, generateTNCNForm, generateSDDPNNForm, generateAgriculturalTaxForm } from './taxFormGenerator';
 import { getDefaultTemplate } from '../data/defaultTemplates';

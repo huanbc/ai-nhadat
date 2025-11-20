@@ -2,6 +2,8 @@
 
 
 
+
+
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -63,6 +65,20 @@ const landSchema = {
     },
 };
 
+const vehicleSchema = {
+    type: Type.OBJECT,
+    properties: {
+        type: { type: Type.STRING, description: "Loại phương tiện (xe máy, ô tô, mô tô hai bánh, ...)." },
+        brand: { type: Type.STRING, description: "Nhãn hiệu (Honda, Yamaha, Toyota...)." },
+        color: { type: Type.STRING, description: "Màu sơn." },
+        chassisNumber: { type: Type.STRING, description: "Số khung." },
+        engineNumber: { type: Type.STRING, description: "Số máy." },
+        licensePlate: { type: Type.STRING, description: "Biển số đăng ký (nếu có)." },
+        manufactureYear: { type: Type.STRING, description: "Năm sản xuất." },
+        registeredOwner: { type: Type.STRING, description: "Tên chủ xe trên giấy tờ." },
+    }
+}
+
 
 // =================================================================
 // Prompt and Schema Generation for each stage
@@ -79,6 +95,7 @@ Lưu ý: "Họ và tên" phải được viết IN HOA. Tất cả các trườn
     let schema: any = {};
     const partyArraySchema = { type: Type.ARRAY, items: partySchema };
     const landArraySchema = { type: Type.ARRAY, items: landSchema };
+    const vehicleArraySchema = { type: Type.ARRAY, items: vehicleSchema };
     
     switch (stage) {
         case 'partyA_id':
@@ -111,6 +128,17 @@ Lưu ý: "Họ và tên" phải được viết IN HOA. Tất cả các trườn
 - Hình thức sử dụng, mục đích, thời hạn, và nguồn gốc sử dụng.
 - Nếu có đất nông nghiệp, hãy trích xuất diện tích các loại đất (đất lúa, cây hàng năm, v.v.).`;
             schema = { type: Type.OBJECT, properties: { landInfo: landArraySchema } };
+            break;
+
+        case 'vehicleRegistration':
+            prompt += `Bây giờ, hãy trích xuất thông tin chi tiết từ (các) Giấy đăng ký xe, hóa đơn mua xe hoặc sổ bảo hành. Hãy lấy chính xác:
+            - Loại phương tiện (xe máy, ô tô...)
+            - Nhãn hiệu, Màu sơn
+            - Số khung, Số máy (quan trọng, hãy đọc kỹ)
+            - Biển số xe (nếu có)
+            - Năm sản xuất
+            - Tên chủ xe đứng tên trên giấy tờ`;
+            schema = { type: Type.OBJECT, properties: { vehicleInfo: vehicleArraySchema } };
             break;
             
         case 'contract':
@@ -309,8 +337,6 @@ ${JSON.stringify(internalLandPrices, null, 2)}
 - Đưa ra những nhận xét chính xác, cụ thể và hữu ích dựa trên Luật Đất đai 2024.`;
 
     finalInstructions += closingRemarks;
-
-    allParts.push({ text: finalInstructions });
 
     if (files.length === 0) {
         throw new Error("Không có tài liệu nào được cung cấp để kiểm tra.");
@@ -641,7 +667,7 @@ export const generateDirectiveResponse = async (
 
 export const quickExtractPersonalInfo = async (file: UploadedFile): Promise<string> => {
     const prompt = `🌟 Prompt Đề xuất: Trích xuất và Định dạng Thông tin Cá nhân
-Tôi sẽ cung cấp cho bạn một tài liệu dưới dạng [HÌNH ẢNH HOẶC TỆP PDF] chứa danh sách thông tin cá nhân (thông tin trên Căn cước công dân, căn cước hoặc giấy tờ tùy thân).
+Tôi sẽ cung cấp cho bạn một tài liệu dưới dạng [HÌNHẢNH HOẶC TỆP PDF] chứa danh sách thông tin cá nhân (thông tin trên Căn cước công dân, căn cước hoặc giấy tờ tùy thân).
 
 **YÊU CẦU TRÍCH XUẤT DỮ LIỆU:**
 Hãy đóng vai trò là công cụ trích xuất dữ liệu và nhập liệu.

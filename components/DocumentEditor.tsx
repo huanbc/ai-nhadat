@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useEffect } from 'react';
-import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey } from '../types';
+import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey, VehicleData } from '../types';
 import { numberToWords } from '../utils/numberToWords';
 
 interface DocumentEditorProps {
@@ -108,6 +109,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
         });
     };
 
+    const handleVehicleChange = (index: number, updatedVehicle: VehicleData) => {
+        setEditedData(prev => {
+            const newVehicleInfo = [...(prev.vehicleInfo || [])];
+            newVehicleInfo[index] = updatedVehicle;
+            return { ...prev, vehicleInfo: newVehicleInfo };
+        });
+    };
+
     const handleGeneralInfoChange = (field: 'transactionAmount' | 'documentDate' | 'ubndName', value: string) => {
         let updatedValue: Partial<ExtractedData> = { [field]: value };
         if (field === 'transactionAmount') {
@@ -176,6 +185,26 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
                                 <InputField label="Số GCN" value={land.certificateNumber || ''} onChange={e => handleLandChange(index, {...land, certificateNumber: e.target.value})} />
                                 <InputField label="Ngày cấp GCN" value={land.certificateIssueDate || ''} onChange={e => handleLandChange(index, {...land, certificateIssueDate: e.target.value})} />
                                 <InputField label="Nơi cấp GCN" value={land.certificateIssuer || ''} onChange={e => handleLandChange(index, {...land, certificateIssuer: e.target.value})} />
+                             </div>
+                        </div>
+                    ))}
+                </Section>
+            )}
+
+            {(editedData.vehicleInfo && editedData.vehicleInfo.length > 0) && (
+                <Section title="Thông tin Phương tiện">
+                    {editedData.vehicleInfo.map((vehicle, index) => (
+                        <div key={index} className="space-y-4 p-4 border border-slate-200 rounded-md bg-slate-50 col-span-1 md:col-span-2 lg:col-span-3">
+                             <h4 className="font-semibold text-lg text-slate-700">Phương tiện {index + 1}</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <InputField label="Loại phương tiện" value={vehicle.type || ''} onChange={e => handleVehicleChange(index, {...vehicle, type: e.target.value})} />
+                                <InputField label="Nhãn hiệu" value={vehicle.brand || ''} onChange={e => handleVehicleChange(index, {...vehicle, brand: e.target.value})} />
+                                <InputField label="Màu sơn" value={vehicle.color || ''} onChange={e => handleVehicleChange(index, {...vehicle, color: e.target.value})} />
+                                <InputField label="Số khung" value={vehicle.chassisNumber || ''} onChange={e => handleVehicleChange(index, {...vehicle, chassisNumber: e.target.value})} />
+                                <InputField label="Số máy" value={vehicle.engineNumber || ''} onChange={e => handleVehicleChange(index, {...vehicle, engineNumber: e.target.value})} />
+                                <InputField label="Biển số" value={vehicle.licensePlate || ''} onChange={e => handleVehicleChange(index, {...vehicle, licensePlate: e.target.value})} />
+                                <InputField label="Năm sản xuất" value={vehicle.manufactureYear || ''} onChange={e => handleVehicleChange(index, {...vehicle, manufactureYear: e.target.value})} />
+                                <InputField label="Chủ xe trên giấy tờ" value={vehicle.registeredOwner || ''} onChange={e => handleVehicleChange(index, {...vehicle, registeredOwner: e.target.value})} />
                              </div>
                         </div>
                     ))}

@@ -1,3 +1,5 @@
+
+
 import { DocumentTemplate, DocumentTemplateKey, SubTemplateKey } from './types';
 
 export const DOCUMENT_TEMPLATES: DocumentTemplate[] = [
@@ -104,6 +106,14 @@ export const DOCUMENT_TEMPLATES: DocumentTemplate[] = [
     requiresLandCertificate: true,
     hasSubTemplates: true,
   },
+  {
+    key: DocumentTemplateKey.VEHICLE_ORIGIN_CONFIRMATION,
+    title: 'Đơn xin Xác nhận Nguồn gốc Phương tiện',
+    description: 'Soạn đơn đề nghị UBND xác nhận nguồn gốc xe (xe máy, ô tô...) để làm thủ tục đăng ký.',
+    requiredParties: ['partyA'], // partyA is the applicant
+    requiresLandCertificate: false,
+    requiresVehicleRegistration: true,
+  },
 ];
 
 
@@ -146,6 +156,16 @@ export const PLACEHOLDER_GUIDE: { category: string; placeholders: { key: string;
             { key: '{{landInfo[0].area}}', description: 'Diện tích của thửa đất đầu tiên.' },
             { key: '{{landInfo[0].certificateNumber}}', description: 'Số GCN của thửa đất đầu tiên.' },
         ],
+    },
+    {
+        category: 'Thông tin Xe',
+        placeholders: [
+             { key: '{{vehicleInfo[0].type}}', description: 'Loại phương tiện' },
+             { key: '{{vehicleInfo[0].brand}}', description: 'Nhãn hiệu' },
+             { key: '{{vehicleInfo[0].chassisNumber}}', description: 'Số khung' },
+             { key: '{{vehicleInfo[0].engineNumber}}', description: 'Số máy' },
+             { key: '{{vehicleInfo[0].licensePlate}}', description: 'Biển số' },
+        ]
     },
     {
         category: 'Chữ ký',

@@ -1,4 +1,6 @@
 
+
+
 import { DocumentTemplateKey, SubTemplateKey } from '../types';
 
 const transferTemplate = `
@@ -449,6 +451,69 @@ const taxExemptionTemplate = `
 </html>
 `;
 
+const vehicleOriginTemplate = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đơn xin xác nhận nguồn gốc phương tiện</title>
+    <style>
+        body { font-family: 'Times New Roman', Times, serif; font-size: 14pt; line-height: 1.5; margin: 2cm 2cm 2cm 3cm; }
+        p { text-align: justify; margin: 0 0 1em 0; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        .header { text-align: center; font-weight: bold; margin-bottom: 1.5em;}
+        h2 { font-size: 16pt; font-weight: bold; text-align: center; margin: 1em 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <p class="bold" style="margin: 0;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+        <p class="bold" style="margin: 0;">Độc lập - Tự do - Hạnh phúc</p>
+    </div>
+
+    <h2>ĐƠN XIN XÁC NHẬN NGUỒN GỐC PHƯƠNG TIỆN</h2>
+
+    <p class="center">Kính gửi: UBND xã/phường ..............................................................</p>
+    <br>
+
+    <p>Tôi tên là: <span class="bold">{{partyA[0].fullName}}</span></p>
+    <p>Sinh ngày: {{partyA[0].dateOfBirth}}</p>
+    <p>CMND/CCCD số: {{partyA[0].idNumber}} &nbsp;&nbsp;&nbsp;&nbsp; Cấp ngày: {{partyA[0].idIssueDate}} &nbsp;&nbsp;&nbsp;&nbsp; Nơi cấp: {{partyA[0].idIssuePlace}}</p>
+    <p>Hộ khẩu thường trú: {{partyA[0].permanentAddress}}</p>
+    <p>Chỗ ở hiện tại: {{partyA[0].currentAddress}}</p>
+
+    <p>Nay tôi làm đơn này xin UBND xã/phường ............................................... xác nhận nguồn gốc phương tiện sau:</p>
+
+    <div style="margin-left: 1cm;">
+        <p>- Loại phương tiện: {{vehicleInfo[0].type}}</p>
+        <p>- Nhãn hiệu: {{vehicleInfo[0].brand}}</p>
+        <p>- Màu sơn: {{vehicleInfo[0].color}}</p>
+        <p>- Số khung: {{vehicleInfo[0].chassisNumber}}</p>
+        <p>- Số máy: {{vehicleInfo[0].engineNumber}}</p>
+        <p>- Biển số: {{vehicleInfo[0].licensePlate}}</p>
+    </div>
+
+    <p><span class="bold">Lý do xin xác nhận:</span></p>
+    <p>Tôi xin xác nhận nguồn gốc phương tiện để hoàn thiện thủ tục đăng ký theo quy định.</p>
+
+    <p>Tôi xin cam đoan phương tiện không phải tài sản trộm cắp, không tranh chấp và tôi hoàn toàn chịu trách nhiệm trước pháp luật.</p>
+    <br>
+
+    <div style="text-align: right;">
+        <p class="italic">............., ngày {{documentDate.day}} tháng {{documentDate.month}} năm {{documentDate.year}}</p>
+        <div style="text-align: center; display: inline-block; width: 50%;">
+             <p class="bold">Người làm đơn</p>
+             <p class="italic">(Ký và ghi rõ họ tên)</p>
+             <br><br><br><br>
+             <p class="bold">{{partyA[0].fullName}}</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
 
 const defaultTemplates: { [key in DocumentTemplateKey]?: { [key in SubTemplateKey]?: string } | string } = {
     [DocumentTemplateKey.TRANSFER]: {
@@ -463,6 +528,7 @@ const defaultTemplates: { [key in DocumentTemplateKey]?: { [key in SubTemplateKe
     },
     [DocumentTemplateKey.LAND_USE_CHANGE]: landUseChangeTemplate,
     [DocumentTemplateKey.TAX_EXEMPTION_REQUEST]: taxExemptionTemplate,
+    [DocumentTemplateKey.VEHICLE_ORIGIN_CONFIRMATION]: vehicleOriginTemplate,
     // Add other default templates here
 };
 

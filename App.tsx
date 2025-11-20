@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { TemplateSelector } from './components/TemplateSelector';
 import { SubTemplateSelector } from './components/SubTemplateSelector';
@@ -27,6 +29,7 @@ const generateUploadSequence = (template: DocumentTemplate): string[] => {
     if (template.requiresDeathCertificate) sequence.push('deathCertificates');
     if (template.acceptsHeirsConfirmation) sequence.push('heirsConfirmation');
     if (template.requiresLandCertificate) sequence.push('landCertificate');
+    if (template.requiresVehicleRegistration) sequence.push('vehicleRegistration');
     if (template.acceptsContract) sequence.push('contract');
     return sequence;
 };

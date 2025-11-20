@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { DocumentTemplate, UploadedFiles, UploadedFile } from '../types';
 
@@ -148,6 +149,7 @@ const getStageLabel = (stage: string): string => {
         case 'deathCertificates': return "Giấy Chứng tử";
         case 'heirsConfirmation': return "Giấy Xác nhận Hàng thừa kế (Tùy chọn)";
         case 'landCertificate': return "Giấy Chứng nhận QSDĐ";
+        case 'vehicleRegistration': return "Đăng ký xe / Giấy tờ xe / Hóa đơn mua xe";
         case 'contract': return "Hợp đồng chuyển quyền";
         default: return "Tài liệu không xác định";
     }
@@ -194,6 +196,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({ template, on
             case 'deathCertificates':
             case 'landCertificate':
             case 'contract':
+            case 'vehicleRegistration': // Add vehicleRegistration here
                 return <MultiFileInput 
                             id={stageKey} 
                             label={label} 

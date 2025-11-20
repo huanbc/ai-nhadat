@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
@@ -15,12 +11,22 @@ import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits' | 'mapLookup';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits' | 'mapLookup') => void;
   onBack?: () => void;
 }
 
 type AuthorityLevel = 'all' | 'cấp tỉnh' | 'cấp xã';
+
+interface MapRecord {
+    id: string;
+    newUnit: string;
+    oldUnit: string;
+    oldSheet: string;
+    newSheet: string;
+    scale: string;
+    notes?: string;
+}
 
 export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHome, activeTab, onTabChange, onBack }) => {
   const { documents, deleteDocument } = useDocumentStore();
@@ -71,6 +77,11 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   // State for Admin Unit Lookup
   const [adminUnitSearch, setAdminUnitSearch] = useState('');
   const [adminUnitResults, setAdminUnitResults] = useState<{ oldName: string; newName: string }[]>([]);
+  
+  // State for Map Lookup
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [mapData, setMapData] = useState<MapRecord[]>([]);
+  const [mapSearchResults, setMapSearchResults] = useState<MapRecord[]>([]);
 
   const adminUnitSearchData = useMemo(() => {
     const data: { oldName: string; newName: string }[] = [];
@@ -120,6 +131,13 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         customLandPrices.forEach(p => priceMap.set(p.id!, p)); // Custom prices will overwrite initial ones if IDs match
 
         setAllLandPrices(Array.from(priceMap.values()));
+        
+        // Load map data
+        const mapResponse = await fetch('/data/mapData.json');
+        if (mapResponse.ok) {
+            const mapJson = await mapResponse.json();
+            setMapData(mapJson);
+        }
 
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);
@@ -130,6 +148,27 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     };
     fetchInitialData();
   }, [customLandPrices]);
+  
+  useEffect(() => {
+      if (activeTab === 'mapLookup') {
+          if (!mapSearchQuery.trim()) {
+              setMapSearchResults([]);
+              return;
+          }
+          
+          // Smart search logic (fuzzy match across multiple fields)
+          const normalizedQuery = mapSearchQuery.toLowerCase().trim().replace(/\s+/g, ' ');
+          const keywords = normalizedQuery.split(' ');
+          
+          const results = mapData.filter(item => {
+              const itemText = `${item.newUnit} ${item.oldUnit} ${item.oldSheet} ${item.newSheet} ${item.notes || ''}`.toLowerCase();
+              // Check if ALL keywords exist in the item's text string
+              return keywords.every(keyword => itemText.includes(keyword));
+          });
+          
+          setMapSearchResults(results);
+      }
+  }, [mapSearchQuery, mapData, activeTab]);
 
   const procedureCategories = useMemo(() => {
       const cats = new Set(procedures.map(p => p.category));
@@ -520,7 +559,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const TabButton: React.FC<{ tabId: DocumentManagerProps['activeTab'], label: string }> = ({ tabId, label }) => (
      <button
         onClick={() => onTabChange(tabId)}
-        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 ${
+        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
           activeTab === tabId
             ? 'border-blue-600 text-blue-700 bg-white'
             : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -565,10 +604,11 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         </button>
       </div>
 
-       <div className="border-b border-slate-200">
-          <nav className="-mb-px flex space-x-4" aria-label="Tabs">
+       <div className="border-b border-slate-200 overflow-x-auto">
+          <nav className="-mb-px flex space-x-4 min-w-max" aria-label="Tabs">
             <TabButton tabId="analysis" label="Phân tích & Thư viện" />
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
+            <TabButton tabId="mapLookup" label="Tra cứu Bản đồ 2 cấp" />
             <TabButton tabId="adminUnits" label="ĐV Hành chính" />
             <TabButton tabId="officialDocs" label="VB Trình ký" />
             <TabButton tabId="documents" label="Tra cứu Hồ sơ" />
@@ -779,6 +819,55 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
               ) : (
                 <p className="p-4 text-slate-400 text-center mt-4">Nhập tên để bắt đầu tra cứu.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+       {activeTab === 'mapLookup' && (
+        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
+          <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Bản đồ 2 cấp</h3>
+          <p className="text-slate-600 text-sm mb-4">Tìm kiếm nhanh thông tin quy đổi giữa bản đồ cũ và bản đồ mới. Nhập số tờ bản đồ (VD: "DC1") hoặc tên xã (VD: "Lương Minh") vào ô tìm kiếm.</p>
+          <div className="flex flex-col space-y-4">
+            <input
+              type="text"
+              value={mapSearchQuery}
+              onChange={(e) => setMapSearchQuery(e.target.value)}
+              placeholder="Nhập số tờ bản đồ, tên xã cũ/mới (VD: dc 01 xã lương minh)..."
+              className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              aria-label="Tra cứu bản đồ"
+            />
+            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[300px]">
+              {mapSearchResults.length > 0 ? (
+                 <table className="w-full text-sm text-left text-slate-800">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
+                    <tr>
+                      <th scope="col" className="px-4 py-2">Đơn vị HC Mới</th>
+                      <th scope="col" className="px-4 py-2">Đơn vị HC Cũ</th>
+                      <th scope="col" className="px-4 py-2 text-center">Tờ BĐ Cũ</th>
+                      <th scope="col" className="px-4 py-2 text-center">Tờ BĐ Mới</th>
+                      <th scope="col" className="px-4 py-2 text-center">Tỷ lệ</th>
+                      <th scope="col" className="px-4 py-2">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mapSearchResults.map((item) => (
+                      <tr key={item.id} className="bg-white border-b border-slate-200 hover:bg-blue-50 transition-colors">
+                        <td className="px-4 py-2 font-medium text-blue-800">{item.newUnit}</td>
+                        <td className="px-4 py-2">{item.oldUnit}</td>
+                        <td className="px-4 py-2 text-center font-semibold">{item.oldSheet}</td>
+                        <td className="px-4 py-2 text-center font-semibold text-green-700">{item.newSheet}</td>
+                        <td className="px-4 py-2 text-center text-slate-500">{item.scale}</td>
+                         <td className="px-4 py-2 text-xs text-slate-500 italic">{item.notes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : mapSearchQuery.trim() ? (
+                <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
+              ) : (
+                <p className="p-4 text-slate-400 text-center mt-4">Nhập thông tin để bắt đầu tra cứu.</p>
               )}
             </div>
           </div>

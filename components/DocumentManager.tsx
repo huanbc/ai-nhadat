@@ -82,6 +82,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [mapData, setMapData] = useState<MapRecord[]>([]);
   const [mapSearchResults, setMapSearchResults] = useState<MapRecord[]>([]);
+  const [selectedMapNewUnit, setSelectedMapNewUnit] = useState<string>('');
+  const [selectedMapOldUnit, setSelectedMapOldUnit] = useState<string>('');
 
   const adminUnitSearchData = useMemo(() => {
     const data: { oldName: string; newName: string }[] = [];
@@ -137,6 +139,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         if (mapResponse.ok) {
             const mapJson = await mapResponse.json();
             setMapData(mapJson);
+            setMapSearchResults(mapJson); // Initialize with full data or empty based on preference, let's keep full for filters
         }
 
       } catch (error) {
@@ -149,26 +152,43 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     fetchInitialData();
   }, [customLandPrices]);
   
+  // Derive unique lists for filters
+  const uniqueNewUnits = useMemo(() => {
+    return Array.from(new Set(mapData.map(item => item.newUnit))).sort();
+  }, [mapData]);
+
+  const uniqueOldUnits = useMemo(() => {
+    return Array.from(new Set(mapData.map(item => item.oldUnit))).sort();
+  }, [mapData]);
+
   useEffect(() => {
       if (activeTab === 'mapLookup') {
-          if (!mapSearchQuery.trim()) {
-              setMapSearchResults([]);
-              return;
+          let results = mapData;
+
+          // Filter by New Unit
+          if (selectedMapNewUnit) {
+              results = results.filter(item => item.newUnit === selectedMapNewUnit);
           }
-          
-          // Smart search logic (fuzzy match across multiple fields)
-          const normalizedQuery = mapSearchQuery.toLowerCase().trim().replace(/\s+/g, ' ');
-          const keywords = normalizedQuery.split(' ');
-          
-          const results = mapData.filter(item => {
-              const itemText = `${item.newUnit} ${item.oldUnit} ${item.oldSheet} ${item.newSheet} ${item.notes || ''}`.toLowerCase();
-              // Check if ALL keywords exist in the item's text string
-              return keywords.every(keyword => itemText.includes(keyword));
-          });
+
+          // Filter by Old Unit
+          if (selectedMapOldUnit) {
+              results = results.filter(item => item.oldUnit === selectedMapOldUnit);
+          }
+
+          // Filter by Text Search (Fuzzy)
+          if (mapSearchQuery.trim()) {
+              const normalizedQuery = mapSearchQuery.toLowerCase().trim().replace(/\s+/g, ' ');
+              const keywords = normalizedQuery.split(' ');
+              
+              results = results.filter(item => {
+                  const itemText = `${item.newUnit} ${item.oldUnit} ${item.oldSheet} ${item.newSheet} ${item.notes || ''}`.toLowerCase();
+                  return keywords.every(keyword => itemText.includes(keyword));
+              });
+          }
           
           setMapSearchResults(results);
       }
-  }, [mapSearchQuery, mapData, activeTab]);
+  }, [mapSearchQuery, mapData, activeTab, selectedMapNewUnit, selectedMapOldUnit]);
 
   const procedureCategories = useMemo(() => {
       const cats = new Set(procedures.map(p => p.category));
@@ -828,13 +848,55 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
        {activeTab === 'mapLookup' && (
         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
           <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Bản đồ 2 cấp</h3>
-          <p className="text-slate-600 text-sm mb-4">Tìm kiếm nhanh thông tin quy đổi giữa bản đồ cũ và bản đồ mới. Nhập số tờ bản đồ (VD: "DC1") hoặc tên xã (VD: "Lương Minh") vào ô tìm kiếm.</p>
+          <p className="text-slate-600 text-sm mb-4">Tìm kiếm nhanh thông tin quy đổi giữa bản đồ cũ và bản đồ mới. Sử dụng bộ lọc hoặc nhập từ khóa vào ô tìm kiếm.</p>
           <div className="flex flex-col space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                    <label htmlFor="new-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Mới:</label>
+                    <select
+                        id="new-unit-filter"
+                        value={selectedMapNewUnit}
+                        onChange={(e) => setSelectedMapNewUnit(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniqueNewUnits.map(unit => (
+                            <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex-1">
+                    <label htmlFor="old-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Cũ:</label>
+                    <select
+                        id="old-unit-filter"
+                        value={selectedMapOldUnit}
+                        onChange={(e) => setSelectedMapOldUnit(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniqueOldUnits.map(unit => (
+                            <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex items-end">
+                    <button
+                        onClick={() => {
+                            setSelectedMapNewUnit('');
+                            setSelectedMapOldUnit('');
+                            setMapSearchQuery('');
+                        }}
+                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
+                    >
+                        Xóa lọc
+                    </button>
+                </div>
+            </div>
             <input
               type="text"
               value={mapSearchQuery}
               onChange={(e) => setMapSearchQuery(e.target.value)}
-              placeholder="Nhập số tờ bản đồ, tên xã cũ/mới (VD: dc 01 xã lương minh)..."
+              placeholder="Nhập số tờ bản đồ, ghi chú (VD: dc 01)..."
               className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
               aria-label="Tra cứu bản đồ"
             />
@@ -864,7 +926,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     ))}
                   </tbody>
                 </table>
-              ) : mapSearchQuery.trim() ? (
+              ) : (mapSearchQuery.trim() || selectedMapNewUnit || selectedMapOldUnit) ? (
                 <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
               ) : (
                 <p className="p-4 text-slate-400 text-center mt-4">Nhập thông tin để bắt đầu tra cứu.</p>

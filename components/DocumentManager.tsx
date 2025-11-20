@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
@@ -57,6 +60,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [selectedPriceCommune, setSelectedPriceCommune] = useState('');
   const [selectedPriceStreet, setSelectedPriceStreet] = useState('');
   const [selectedPriceFactor, setSelectedPriceFactor] = useState('');
+  const [selectedLandType, setSelectedLandType] = useState('');
 
 
   // State for Procedure Lookup
@@ -102,14 +106,22 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     return data;
   }, []);
   
-  // Derive unique lists for filters (Admin Units)
+  // Derive unique lists for filters (Admin Units) - Cascading Logic
   const uniqueAdminNewUnits = useMemo(() => {
-    return Array.from(new Set(adminUnitSearchData.map(item => item.newName))).sort();
-  }, [adminUnitSearchData]);
+    let data = adminUnitSearchData;
+    if (selectedAdminOldUnit) {
+        data = data.filter(item => item.oldName === selectedAdminOldUnit);
+    }
+    return Array.from(new Set(data.map(item => item.newName))).sort();
+  }, [adminUnitSearchData, selectedAdminOldUnit]);
 
   const uniqueAdminOldUnits = useMemo(() => {
-    return Array.from(new Set(adminUnitSearchData.map(item => item.oldName))).sort();
-  }, [adminUnitSearchData]);
+    let data = adminUnitSearchData;
+    if (selectedAdminNewUnit) {
+        data = data.filter(item => item.newName === selectedAdminNewUnit);
+    }
+    return Array.from(new Set(data.map(item => item.oldName))).sort();
+  }, [adminUnitSearchData, selectedAdminNewUnit]);
 
 
   useEffect(() => {
@@ -170,7 +182,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         if (mapResponse.ok) {
             const mapJson = await mapResponse.json();
             setMapData(mapJson);
-            setMapSearchResults(mapJson); // Initialize with full data or empty based on preference, let's keep full for filters
+            setMapSearchResults(mapJson); // Initialize with full data
         }
 
       } catch (error) {
@@ -183,14 +195,22 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     fetchInitialData();
   }, [customLandPrices]);
   
-  // Derive unique lists for filters (Map Data)
+  // Derive unique lists for filters (Map Data) - Cascading Logic
   const uniqueNewUnits = useMemo(() => {
-    return Array.from(new Set(mapData.map(item => item.newUnit))).sort();
-  }, [mapData]);
+    let data = mapData;
+    if (selectedMapOldUnit) {
+        data = data.filter(item => item.oldUnit === selectedMapOldUnit);
+    }
+    return Array.from(new Set(data.map(item => item.newUnit))).sort();
+  }, [mapData, selectedMapOldUnit]);
 
   const uniqueOldUnits = useMemo(() => {
-    return Array.from(new Set(mapData.map(item => item.oldUnit))).sort();
-  }, [mapData]);
+    let data = mapData;
+    if (selectedMapNewUnit) {
+        data = data.filter(item => item.newUnit === selectedMapNewUnit);
+    }
+    return Array.from(new Set(data.map(item => item.oldUnit))).sort();
+  }, [mapData, selectedMapNewUnit]);
 
   useEffect(() => {
       if (activeTab === 'mapLookup') {
@@ -221,23 +241,44 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       }
   }, [mapSearchQuery, mapData, activeTab, selectedMapNewUnit, selectedMapOldUnit]);
 
-  // Derive unique lists for filters (Land Price)
+  // Derive unique lists for filters (Land Price) - Cascading Logic
   const uniquePriceCommunes = useMemo(() => {
       return Array.from(new Set(allLandPrices.map(item => item.commune).filter(Boolean) as string[])).sort();
   }, [allLandPrices]);
+
+  const uniqueLandTypes = useMemo(() => {
+    let filtered = allLandPrices;
+    if (selectedPriceCommune) {
+        filtered = filtered.filter(item => item.commune === selectedPriceCommune);
+    }
+    return Array.from(new Set(filtered.map(item => item.landType || '').filter(Boolean))).sort();
+  }, [allLandPrices, selectedPriceCommune]);
 
   const uniquePriceStreets = useMemo(() => {
       let filtered = allLandPrices;
       if (selectedPriceCommune) {
           filtered = filtered.filter(item => item.commune === selectedPriceCommune);
       }
+      if (selectedLandType) {
+          filtered = filtered.filter(item => item.landType === selectedLandType);
+      }
       return Array.from(new Set(filtered.map(item => item.streetName).filter(Boolean))).sort();
-  }, [allLandPrices, selectedPriceCommune]);
+  }, [allLandPrices, selectedPriceCommune, selectedLandType]);
 
   const uniquePriceFactors = useMemo(() => {
-      const factors = allLandPrices.map(item => item.adjustmentFactor).filter(f => f !== undefined && f !== null) as number[];
+      let filtered = allLandPrices;
+       if (selectedPriceCommune) {
+          filtered = filtered.filter(item => item.commune === selectedPriceCommune);
+      }
+      if (selectedLandType) {
+          filtered = filtered.filter(item => item.landType === selectedLandType);
+      }
+       if (selectedPriceStreet) {
+          filtered = filtered.filter(item => item.streetName === selectedPriceStreet);
+      }
+      const factors = filtered.map(item => item.adjustmentFactor).filter(f => f !== undefined && f !== null) as number[];
       return Array.from(new Set(factors)).sort((a, b) => a - b);
-  }, [allLandPrices]);
+  }, [allLandPrices, selectedPriceCommune, selectedLandType, selectedPriceStreet]);
 
    useEffect(() => {
       if (activeTab === 'prices') {
@@ -246,6 +287,11 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
           // Filter by Commune
           if (selectedPriceCommune) {
               results = results.filter(item => item.commune === selectedPriceCommune);
+          }
+
+          // Filter by Land Type
+          if (selectedLandType) {
+              results = results.filter(item => item.landType === selectedLandType);
           }
 
           // Filter by Street Name
@@ -266,13 +312,14 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                   item.streetName.toLowerCase().includes(lowerCaseQuery) || 
                   item.section.toLowerCase().includes(lowerCaseQuery) ||
                   item.commune?.toLowerCase().includes(lowerCaseQuery) ||
+                  item.landType?.toLowerCase().includes(lowerCaseQuery) ||
                   item.notes?.toLowerCase().includes(lowerCaseQuery)
               );
           }
           
           setLandPriceSearchResults(results);
       }
-  }, [landPriceSearchQuery, allLandPrices, activeTab, selectedPriceCommune, selectedPriceStreet, selectedPriceFactor]);
+  }, [landPriceSearchQuery, allLandPrices, activeTab, selectedPriceCommune, selectedLandType, selectedPriceStreet, selectedPriceFactor]);
 
 
   const procedureCategories = useMemo(() => {
@@ -500,6 +547,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
               <tr>
                 <th scope="col" className="px-4 py-2">Xã/Phường/Đặc khu</th>
+                <th scope="col" className="px-4 py-2">Loại đất</th>
                 <th scope="col" className="px-4 py-2 text-center">HSĐC</th>
                 <th scope="col" className="px-4 py-2 text-center">HSVHM</th>
                 <th scope="col" className="px-4 py-2 text-right">Đơn giá (đồng/m²)</th>
@@ -513,6 +561,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     {item.commune}
                     <span className="block text-xs text-slate-500 font-normal">{item.streetName} - {item.section}</span>
                   </td>
+                  <td className="px-4 py-2">{item.landType}</td>
                   <td className="px-4 py-2 text-center">{item.adjustmentFactor}</td>
                   <td className="px-4 py-2 text-center">{item.vhmFactor}</td>
                   <td className="px-4 py-2 text-right font-semibold">{formatPrice(item.price)}</td>
@@ -551,6 +600,10 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
            <div>
               <label className="block text-sm font-medium text-slate-500">Khu vực</label>
               <p className="mt-1 p-2 bg-slate-100 rounded-md text-slate-800">{editingPrice?.commune} - {editingPrice?.streetName}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-500">Loại đất</label>
+              <p className="mt-1 p-2 bg-slate-100 rounded-md text-slate-800">{editingPrice?.landType}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-500">Đoạn đường</label>
@@ -1202,6 +1255,20 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         ))}
                     </select>
                 </div>
+                <div className="flex-1">
+                    <label htmlFor="price-land-type-filter" className="block text-xs font-medium text-slate-700 mb-1">Loại đất:</label>
+                    <select
+                        id="price-land-type-filter"
+                        value={selectedLandType}
+                        onChange={(e) => setSelectedLandType(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniqueLandTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                        ))}
+                    </select>
+                </div>
                  <div className="flex-1">
                     <label htmlFor="price-street-filter" className="block text-xs font-medium text-slate-700 mb-1">Tên đường/Khu vực:</label>
                     <select
@@ -1216,7 +1283,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         ))}
                     </select>
                 </div>
-                <div className="flex-1 max-w-[150px]">
+                <div className="flex-1 max-w-[100px]">
                     <label htmlFor="price-factor-filter" className="block text-xs font-medium text-slate-700 mb-1">Hệ số ĐC:</label>
                     <select
                         id="price-factor-filter"
@@ -1234,6 +1301,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     <button
                         onClick={() => {
                             setSelectedPriceCommune('');
+                            setSelectedLandType('');
                             setSelectedPriceStreet('');
                             setSelectedPriceFactor('');
                             setLandPriceSearchQuery('');
@@ -1274,8 +1342,10 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                       <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
                         <tr>
                           <th scope="col" className="px-4 py-2">Xã/Phường/Đặc khu</th>
+                          <th scope="col" className="px-4 py-2">Loại đất</th>
+                          <th scope="col" className="px-4 py-2">Mã/Tên đường</th>
+                          <th scope="col" className="px-4 py-2">Đoạn đường</th>
                           <th scope="col" className="px-4 py-2 text-center">HSĐC</th>
-                          <th scope="col" className="px-4 py-2 text-center">HSVHM</th>
                           <th scope="col" className="px-4 py-2 text-right">Đơn giá (đồng/m²)</th>
                           <th scope="col" className="px-4 py-2">Ghi chú</th>
                           <th scope="col" className="px-4 py-2 text-center">Thao tác</th>
@@ -1284,14 +1354,16 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                       <tbody>
                         {landPriceSearchResults.map((item, index) => (
                           <tr key={item.id || index} className="bg-white border-b border-slate-200">
-                            <td className="px-4 py-2 font-medium">
-                              {item.commune}
-                              <span className="block text-xs text-slate-500 font-normal">{item.streetName} - {item.section}</span>
+                            <td className="px-4 py-2 font-medium">{item.commune}</td>
+                            <td className="px-4 py-2">{item.landType}</td>
+                             <td className="px-4 py-2">{item.streetName}</td>
+                            <td className="px-4 py-2">
+                                {item.section}
+                                {item.sectionCode && <span className="block text-xs text-slate-500">Mã đoạn: {item.sectionCode}</span>}
                             </td>
                             <td className="px-4 py-2 text-center">{item.adjustmentFactor}</td>
-                            <td className="px-4 py-2 text-center">{item.vhmFactor}</td>
                             <td className="px-4 py-2 text-right font-semibold">{formatPrice(item.price)}</td>
-                            <td className="px-4 py-2">{item.notes}</td>
+                            <td className="px-4 py-2 text-xs italic">{item.notes}</td>
                             <td className="px-4 py-2 text-center">
                               <button
                                 onClick={() => handleOpenEditPricePopup(item)}
@@ -1304,7 +1376,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         ))}
                       </tbody>
                     </table>
-                  ) : (landPriceSearchQuery.trim() || selectedPriceCommune || selectedPriceStreet || selectedPriceFactor) ? (
+                  ) : (landPriceSearchQuery.trim() || selectedPriceCommune || selectedLandType || selectedPriceStreet || selectedPriceFactor) ? (
                     <p className="p-3 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
                   ) : (
                      <p className="p-3 text-slate-400 text-center mt-4">Sử dụng bộ lọc hoặc nhập từ khóa để tìm kiếm.</p>

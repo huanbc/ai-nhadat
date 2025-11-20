@@ -204,6 +204,7 @@ export interface Procedure {
 
 export interface LandPrice {
   id?: string;
+  landType?: string; // Loại đất (VD: Đất ở, Đất trồng cây lâu năm...)
   streetName: string;
   section: string;
   position: string;

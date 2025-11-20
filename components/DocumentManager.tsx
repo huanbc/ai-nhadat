@@ -52,6 +52,11 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [isPricePreviewOpen, setIsPricePreviewOpen] = useState(false);
   const [editingPrice, setEditingPrice] = useState<LandPrice | null>(null);
   const [isEditPricePopupOpen, setIsEditPricePopupOpen] = useState(false);
+  
+  // Filters for Land Price
+  const [selectedPriceCommune, setSelectedPriceCommune] = useState('');
+  const [selectedPriceStreet, setSelectedPriceStreet] = useState('');
+  const [selectedPriceFactor, setSelectedPriceFactor] = useState('');
 
 
   // State for Procedure Lookup
@@ -77,6 +82,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   // State for Admin Unit Lookup
   const [adminUnitSearch, setAdminUnitSearch] = useState('');
   const [adminUnitResults, setAdminUnitResults] = useState<{ oldName: string; newName: string }[]>([]);
+  const [selectedAdminNewUnit, setSelectedAdminNewUnit] = useState<string>('');
+  const [selectedAdminOldUnit, setSelectedAdminOldUnit] = useState<string>('');
   
   // State for Map Lookup
   const [mapSearchQuery, setMapSearchQuery] = useState('');
@@ -94,20 +101,43 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
     return data;
   }, []);
+  
+  // Derive unique lists for filters (Admin Units)
+  const uniqueAdminNewUnits = useMemo(() => {
+    return Array.from(new Set(adminUnitSearchData.map(item => item.newName))).sort();
+  }, [adminUnitSearchData]);
+
+  const uniqueAdminOldUnits = useMemo(() => {
+    return Array.from(new Set(adminUnitSearchData.map(item => item.oldName))).sort();
+  }, [adminUnitSearchData]);
+
 
   useEffect(() => {
     if (activeTab === 'adminUnits') {
-        if (!adminUnitSearch.trim()) {
-            setAdminUnitResults([]);
-            return;
+        let results = adminUnitSearchData;
+
+        // Filter by New Unit
+        if (selectedAdminNewUnit) {
+            results = results.filter(item => item.newName === selectedAdminNewUnit);
         }
-        const searchLower = adminUnitSearch.toLowerCase().trim();
-        const results = adminUnitSearchData.filter(item => 
-            item.oldName.toLowerCase().includes(searchLower)
-        );
+
+        // Filter by Old Unit
+        if (selectedAdminOldUnit) {
+            results = results.filter(item => item.oldName === selectedAdminOldUnit);
+        }
+
+        // Filter by Text Search
+        if (adminUnitSearch.trim()) {
+            const searchLower = adminUnitSearch.toLowerCase().trim();
+            results = results.filter(item => 
+                item.oldName.toLowerCase().includes(searchLower) || 
+                item.newName.toLowerCase().includes(searchLower)
+            );
+        }
+        
         setAdminUnitResults(results);
     }
-  }, [adminUnitSearch, activeTab, adminUnitSearchData]);
+  }, [adminUnitSearch, activeTab, adminUnitSearchData, selectedAdminNewUnit, selectedAdminOldUnit]);
 
 
   useEffect(() => {
@@ -133,6 +163,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         customLandPrices.forEach(p => priceMap.set(p.id!, p)); // Custom prices will overwrite initial ones if IDs match
 
         setAllLandPrices(Array.from(priceMap.values()));
+        setLandPriceSearchResults(Array.from(priceMap.values())); // Init search results
         
         // Load map data
         const mapResponse = await fetch('/data/mapData.json');
@@ -152,7 +183,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     fetchInitialData();
   }, [customLandPrices]);
   
-  // Derive unique lists for filters
+  // Derive unique lists for filters (Map Data)
   const uniqueNewUnits = useMemo(() => {
     return Array.from(new Set(mapData.map(item => item.newUnit))).sort();
   }, [mapData]);
@@ -189,6 +220,60 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
           setMapSearchResults(results);
       }
   }, [mapSearchQuery, mapData, activeTab, selectedMapNewUnit, selectedMapOldUnit]);
+
+  // Derive unique lists for filters (Land Price)
+  const uniquePriceCommunes = useMemo(() => {
+      return Array.from(new Set(allLandPrices.map(item => item.commune).filter(Boolean) as string[])).sort();
+  }, [allLandPrices]);
+
+  const uniquePriceStreets = useMemo(() => {
+      let filtered = allLandPrices;
+      if (selectedPriceCommune) {
+          filtered = filtered.filter(item => item.commune === selectedPriceCommune);
+      }
+      return Array.from(new Set(filtered.map(item => item.streetName).filter(Boolean))).sort();
+  }, [allLandPrices, selectedPriceCommune]);
+
+  const uniquePriceFactors = useMemo(() => {
+      const factors = allLandPrices.map(item => item.adjustmentFactor).filter(f => f !== undefined && f !== null) as number[];
+      return Array.from(new Set(factors)).sort((a, b) => a - b);
+  }, [allLandPrices]);
+
+   useEffect(() => {
+      if (activeTab === 'prices') {
+          let results = allLandPrices;
+
+          // Filter by Commune
+          if (selectedPriceCommune) {
+              results = results.filter(item => item.commune === selectedPriceCommune);
+          }
+
+          // Filter by Street Name
+          if (selectedPriceStreet) {
+              results = results.filter(item => item.streetName === selectedPriceStreet);
+          }
+
+          // Filter by Factor
+          if (selectedPriceFactor) {
+              results = results.filter(item => item.adjustmentFactor?.toString() === selectedPriceFactor);
+          }
+
+          // Filter by Search Query (Section, Notes, etc.)
+          if (landPriceSearchQuery.trim()) {
+              const lowerCaseQuery = landPriceSearchQuery.toLowerCase();
+              results = results.filter(
+                (item) => 
+                  item.streetName.toLowerCase().includes(lowerCaseQuery) || 
+                  item.section.toLowerCase().includes(lowerCaseQuery) ||
+                  item.commune?.toLowerCase().includes(lowerCaseQuery) ||
+                  item.notes?.toLowerCase().includes(lowerCaseQuery)
+              );
+          }
+          
+          setLandPriceSearchResults(results);
+      }
+  }, [landPriceSearchQuery, allLandPrices, activeTab, selectedPriceCommune, selectedPriceStreet, selectedPriceFactor]);
+
 
   const procedureCategories = useMemo(() => {
       const cats = new Set(procedures.map(p => p.category));
@@ -259,24 +344,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     if (window.confirm(`Bạn có chắc chắn muốn xóa văn bản trình ký "${title}" không?`)) {
       deleteOfficialDocument(id);
     }
-  };
-
-  const handleLandPriceSearch = () => {
-    if (!landPriceSearchQuery.trim()) {
-      setLandPriceSearchResults([]);
-      return;
-    }
-    setIsLandPriceSearching(true);
-    const lowerCaseQuery = landPriceSearchQuery.toLowerCase();
-    const results = allLandPrices.filter(
-      (item) => 
-        item.streetName.toLowerCase().includes(lowerCaseQuery) || 
-        item.section.toLowerCase().includes(lowerCaseQuery) ||
-        item.commune?.toLowerCase().includes(lowerCaseQuery) ||
-        item.notes?.toLowerCase().includes(lowerCaseQuery)
-    );
-    setLandPriceSearchResults(results);
-    setIsLandPriceSearching(false);
   };
 
   const handleOpenEditPricePopup = (price: LandPrice) => {
@@ -807,20 +874,62 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
        {activeTab === 'adminUnits' && (
         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
           <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Đơn vị Hành chính mới (Tỉnh Quảng Ninh)</h3>
-          <p className="text-slate-600 text-sm mb-4">Nhập tên xã, phường, thị trấn cũ để tìm đơn vị hành chính mới tương ứng sau khi sắp xếp.</p>
+          <p className="text-slate-600 text-sm mb-4">Tra cứu thông tin quy đổi giữa đơn vị hành chính cũ và mới. Sử dụng bộ lọc hoặc nhập tên vào ô tìm kiếm.</p>
           <div className="flex flex-col space-y-4">
+             <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                    <label htmlFor="admin-new-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Mới:</label>
+                    <select
+                        id="admin-new-unit-filter"
+                        value={selectedAdminNewUnit}
+                        onChange={(e) => setSelectedAdminNewUnit(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniqueAdminNewUnits.map(unit => (
+                            <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex-1">
+                    <label htmlFor="admin-old-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Cũ:</label>
+                    <select
+                        id="admin-old-unit-filter"
+                        value={selectedAdminOldUnit}
+                        onChange={(e) => setSelectedAdminOldUnit(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniqueAdminOldUnits.map(unit => (
+                            <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex items-end">
+                    <button
+                        onClick={() => {
+                            setSelectedAdminNewUnit('');
+                            setSelectedAdminOldUnit('');
+                            setAdminUnitSearch('');
+                        }}
+                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
+                    >
+                        Xóa lọc
+                    </button>
+                </div>
+            </div>
             <input
               type="text"
               value={adminUnitSearch}
               onChange={(e) => setAdminUnitSearch(e.target.value)}
-              placeholder="Nhập tên đơn vị hành chính cũ..."
+              placeholder="Nhập tên đơn vị hành chính cũ hoặc mới..."
               className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
               aria-label="Tra cứu đơn vị hành chính"
             />
             <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
               {adminUnitResults.length > 0 ? (
                  <table className="w-full text-sm text-left text-slate-800">
-                  <thead className="text-xs text-slate-700 uppercase bg-slate-100">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
                     <tr>
                       <th scope="col" className="px-4 py-2">Đơn vị cũ</th>
                       <th scope="col" className="px-4 py-2">Đơn vị mới</th>
@@ -835,10 +944,10 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     ))}
                   </tbody>
                 </table>
-              ) : adminUnitSearch.trim() ? (
+              ) : (adminUnitSearch.trim() || selectedAdminNewUnit || selectedAdminOldUnit) ? (
                 <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
               ) : (
-                <p className="p-4 text-slate-400 text-center mt-4">Nhập tên để bắt đầu tra cứu.</p>
+                <p className="p-4 text-slate-400 text-center mt-4">Nhập thông tin để bắt đầu tra cứu.</p>
               )}
             </div>
           </div>
@@ -1078,23 +1187,72 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Nhanh Giá đất</h3>
             <p className="text-slate-600 text-sm mb-4">Tra cứu đơn giá đất theo tên đường/phố. Dữ liệu tham khảo Bảng giá đất tỉnh Quảng Ninh 2020-2024.</p>
             <div className="flex flex-col space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                    <label htmlFor="price-commune-filter" className="block text-xs font-medium text-slate-700 mb-1">Đơn vị Hành chính (Xã/Phường):</label>
+                    <select
+                        id="price-commune-filter"
+                        value={selectedPriceCommune}
+                        onChange={(e) => setSelectedPriceCommune(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniquePriceCommunes.map(commune => (
+                            <option key={commune} value={commune}>{commune}</option>
+                        ))}
+                    </select>
+                </div>
+                 <div className="flex-1">
+                    <label htmlFor="price-street-filter" className="block text-xs font-medium text-slate-700 mb-1">Tên đường/Khu vực:</label>
+                    <select
+                        id="price-street-filter"
+                        value={selectedPriceStreet}
+                        onChange={(e) => setSelectedPriceStreet(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                         {uniquePriceStreets.map(street => (
+                            <option key={street} value={street}>{street}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex-1 max-w-[150px]">
+                    <label htmlFor="price-factor-filter" className="block text-xs font-medium text-slate-700 mb-1">Hệ số ĐC:</label>
+                    <select
+                        id="price-factor-filter"
+                        value={selectedPriceFactor}
+                        onChange={(e) => setSelectedPriceFactor(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                        <option value="">-- Tất cả --</option>
+                        {uniquePriceFactors.map(factor => (
+                            <option key={factor} value={factor}>{factor}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex items-end">
+                    <button
+                        onClick={() => {
+                            setSelectedPriceCommune('');
+                            setSelectedPriceStreet('');
+                            setSelectedPriceFactor('');
+                            setLandPriceSearchQuery('');
+                        }}
+                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
+                    >
+                        Xóa lọc
+                    </button>
+                </div>
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                     type="text"
                     value={landPriceSearchQuery}
                     onChange={(e) => setLandPriceSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLandPriceSearch()}
-                    placeholder="Nhập tên đường, phố, xã..."
+                    placeholder="Nhập từ khóa tìm kiếm (đoạn đường, ghi chú...)..."
                     className="flex-grow p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
                     aria-label="Nhập tên đường để tra cứu"
                 />
-                <button
-                    onClick={handleLandPriceSearch}
-                    disabled={isLandPriceSearching || !landPriceSearchQuery.trim()}
-                    className="inline-flex justify-center items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    {isLandPriceSearching ? 'Đang tìm...' : 'Tra cứu'}
-                </button>
               </div>
               <div className="flex flex-col gap-2">
                   <label htmlFor="price-update-upload" className="text-sm font-medium text-slate-700">Hoặc cập nhật bảng giá đất mới:</label>
@@ -1113,11 +1271,11 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     <p className="p-3 text-red-600">{landPriceSearchError}</p>
                   ) : landPriceSearchResults.length > 0 ? (
                     <table className="w-full text-sm text-left text-slate-800">
-                      <thead className="text-xs text-slate-700 uppercase bg-slate-100">
+                      <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
                         <tr>
                           <th scope="col" className="px-4 py-2">Xã/Phường/Đặc khu</th>
-                          <th scope="col" className="px-4 py-2 text-center">HS Điều chỉnh</th>
-                          <th scope="col" className="px-4 py-2 text-center">HS VHM</th>
+                          <th scope="col" className="px-4 py-2 text-center">HSĐC</th>
+                          <th scope="col" className="px-4 py-2 text-center">HSVHM</th>
                           <th scope="col" className="px-4 py-2 text-right">Đơn giá (đồng/m²)</th>
                           <th scope="col" className="px-4 py-2">Ghi chú</th>
                           <th scope="col" className="px-4 py-2 text-center">Thao tác</th>
@@ -1146,8 +1304,10 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         ))}
                       </tbody>
                     </table>
+                  ) : (landPriceSearchQuery.trim() || selectedPriceCommune || selectedPriceStreet || selectedPriceFactor) ? (
+                    <p className="p-3 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
                   ) : (
-                    <p className="p-3 text-slate-400 text-center mt-4">Nhập tên đường và nhấn "Tra cứu" để xem kết quả.</p>
+                     <p className="p-3 text-slate-400 text-center mt-4">Sử dụng bộ lọc hoặc nhập từ khóa để tìm kiếm.</p>
                   )}
                 </div>
             </div>

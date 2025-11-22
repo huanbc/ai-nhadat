@@ -17,7 +17,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 async function callGeminiWithRetry(
     callFn: () => Promise<GenerateContentResponse>,
     retries = 3,
-    baseDelay = 2000
+    baseDelay = 3000
 ): Promise<GenerateContentResponse> {
     let lastError;
     for (let i = 0; i < retries; i++) {
@@ -25,18 +25,30 @@ async function callGeminiWithRetry(
             return await callFn();
         } catch (error: any) {
             lastError = error;
-            // Retry on 500 (Internal), 503 (Service Unavailable), or 429 (Too Many Requests)
-            const errorCode = error?.status || error?.code; 
-            const errorMessage = error?.message || '';
             
-            // Also retry on generic "Internal error" messages even if status code is missing
-            const isInternalError = errorMessage.includes("Internal error") || errorCode === 500 || errorCode === 503 || errorCode === 429;
+            // Deep inspection of error object to catch 500s regardless of nesting
+            const errorCode = error?.status || error?.code || error?.error?.code || error?.error?.status;
+            const errorMessage = error?.message || error?.error?.message || JSON.stringify(error);
+            
+            const isInternalError = 
+                errorMessage.includes("Internal error") || 
+                errorMessage.includes("An internal error has occurred") ||
+                errorCode === 500 || 
+                errorCode === 503 || 
+                errorCode === 429;
 
             if (isInternalError && i < retries - 1) {
-                console.warn(`Gemini API Error (${errorCode || 'Unknown'}). Retrying attempt ${i + 1}/${retries}...`);
-                await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, i))); // Exponential backoff
+                const delay = baseDelay * Math.pow(2, i);
+                console.warn(`Gemini API Error (${errorCode || 'Unknown'}). Retrying attempt ${i + 1}/${retries} in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay)); // Exponential backoff
                 continue;
             }
+            
+            // Treat 400 errors as fatal (Bad Request), do not retry
+            if (errorCode === 400) {
+                 throw error;
+            }
+
             throw error; // Throw other errors immediately or if retries exhausted
         }
     }
@@ -245,7 +257,7 @@ export const extractDataForStage = async (
 
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API:", error);
-        throw new Error("Không thể phân tích tài liệu. Vui lòng kiểm tra lại hình ảnh, đường truyền mạng và thử lại.");
+        throw new Error("Không thể phân tích tài liệu. Vui lòng kiểm tra lại hình ảnh, đường truyền mạng và thử lại. (Lỗi máy chủ hoặc tài liệu quá mờ)");
     }
 };
 

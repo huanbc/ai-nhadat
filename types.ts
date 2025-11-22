@@ -1,13 +1,10 @@
 
-
-
-
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
   UPLOAD_DOCUMENTS,
   REVIEW_EXTRACTED_DATA,
-  UPLOAD_CUSTOM_TEMPLATE, // Thêm bước mới
+  UPLOAD_CUSTOM_TEMPLATE,
   GENERATE_DOCUMENT,
 }
 
@@ -26,6 +23,7 @@ export enum DocumentTemplateKey {
   PERSONAL_INFO_CONFIRMATION = 'personal_info_confirmation',
   MATRIMONIAL_PROPERTY = 'matrimonial_property',
   VEHICLE_ORIGIN_CONFIRMATION = 'vehicle_origin_confirmation',
+  HEIRS_CONFIRMATION = 'heirs_confirmation',
 }
 
 // Định nghĩa các loại mẫu con
@@ -65,6 +63,7 @@ export interface PartyData {
   deathCertificateIssueDate?: string;
   deathCertificateIssuer?: string;
   taxCode?: string; // Mã số thuế
+  relationship?: string; // Quan hệ với người để lại di sản (Bố đẻ, Mẹ đẻ, Vợ/Chồng, Con đẻ...)
 }
 
 export interface LandData {
@@ -121,6 +120,9 @@ export interface AdditionalTaxInfo {
     landLocationType?: string; // Vị trí thửa đất (mặt tiền, ngõ...)
     landUsePurposeDetails?: string; // Chi tiết mục đích sử dụng
     // Add other specific tax fields if needed
+    
+    // For Heirs Confirmation
+    heirCommitmentOther?: string;
 }
 
 export interface RegistrationApplicationInfo {
@@ -145,6 +147,10 @@ export interface ExtractedData {
   additionalInfo?: AdditionalTaxInfo & RegistrationApplicationInfo & { 
     newUsagePurpose?: string;
     newUsageTerm?: string;
+    communeName?: string;
+    legalBasis?: string;
+    exemptionCategory?: string;
+    exemptionReason?: string;
     [key: string]: any; 
   };
   documentDate?: string;

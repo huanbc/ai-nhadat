@@ -1,5 +1,4 @@
 
-
 import { DocumentTemplate, DocumentTemplateKey, SubTemplateKey } from './types';
 
 export const DOCUMENT_TEMPLATES: DocumentTemplate[] = [
@@ -113,6 +112,14 @@ export const DOCUMENT_TEMPLATES: DocumentTemplate[] = [
     requiredParties: ['partyA'], // partyA is the applicant
     requiresLandCertificate: false,
     requiresVehicleRegistration: true,
+  },
+  {
+    key: DocumentTemplateKey.HEIRS_CONFIRMATION,
+    title: 'Đơn xin Xác nhận Hàng thừa kế thứ nhất',
+    description: 'Soạn đơn trình UBND xã xác nhận danh sách những người thuộc hàng thừa kế thứ nhất (Bố, Mẹ, Vợ/Chồng, Con).',
+    requiredParties: ['partyA', 'heir'], // partyA: Applicant, heir: All heirs including deceased's parents/spouse
+    requiresDeathCertificate: true,
+    requiresLandCertificate: false,
   },
 ];
 

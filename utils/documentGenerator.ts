@@ -1,6 +1,4 @@
 
-
-
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey } from '../types';
 import { generateLPTBForm, generateTNCNForm, generateSDDPNNForm, generateAgriculturalTaxForm } from './taxFormGenerator';
 import { getDefaultTemplate } from '../data/defaultTemplates';
@@ -64,6 +62,24 @@ const generateCompactPartyHtml = (party?: PartyData, isDeceased?: boolean): stri
             Nơi thường trú: ${fill(party.permanentAddress)}
             ${deathInfo}
         </p>
+    `;
+};
+
+const generateDetailHeirHtml = (party?: PartyData): string => {
+    if (!party) return '<p>.........................</p>';
+    let deathInfo = '';
+    if (party.dateOfDeath || party.deathCertificateNumber) {
+        deathInfo = `<br>- Tình trạng: Đã chết ngày ${fill(party.dateOfDeath)} (Số trích lục khai tử: ${fill(party.deathCertificateNumber)}, cấp ngày ${fill(party.deathCertificateIssueDate)})`;
+    } else {
+        deathInfo = '<br>- Tình trạng: Còn sống';
+    }
+
+    return `
+        <div style="margin-left: 1cm; margin-bottom: 0.5em;">
+            - Họ và tên: <strong>${fill(party.fullName)}</strong>, sinh năm: ${fill(getYearFromDate(party.dateOfBirth))}<br>
+            - CCCD số: ${fill(party.idNumber)}, cấp ngày: ${fill(party.idIssueDate)}
+            ${deathInfo}
+        </div>
     `;
 };
 
@@ -192,6 +208,31 @@ export const getDocumentContent = (template: DocumentTemplate, data: ExtractedDa
             break;
     }
 
+    // Specific Logic for Heirs Confirmation Template
+    let heirsFather = '';
+    let heirsMother = '';
+    let heirsSpouse = '';
+    let heirsChildren = '';
+    let childrenCount = 0;
+
+    if (template.key === DocumentTemplateKey.HEIRS_CONFIRMATION && data.heirs) {
+        const fathers = data.heirs.filter(h => h.relationship === 'Bố đẻ');
+        const mothers = data.heirs.filter(h => h.relationship === 'Mẹ đẻ');
+        const spouses = data.heirs.filter(h => h.relationship === 'Vợ/Chồng' || h.relationship === 'Vợ' || h.relationship === 'Chồng');
+        const children = data.heirs.filter(h => h.relationship === 'Con đẻ' || h.relationship === 'Con nuôi');
+        
+        heirsFather = fathers.map(generateDetailHeirHtml).join('') || '<p style="margin-left: 1cm;">(Không có thông tin)</p>';
+        heirsMother = mothers.map(generateDetailHeirHtml).join('') || '<p style="margin-left: 1cm;">(Không có thông tin)</p>';
+        heirsSpouse = spouses.map(generateDetailHeirHtml).join('') || '<p style="margin-left: 1cm;">(Không có thông tin)</p>';
+        heirsChildren = children.map((child, index) => {
+            const detail = generateDetailHeirHtml(child);
+            // Inject index manually since generateDetailHeirHtml is generic
+            return detail.replace('- Họ và tên:', `${index + 1}. Họ và tên:`);
+        }).join('') || '<p style="margin-left: 1cm;">(Không có con)</p>';
+        
+        childrenCount = children.length;
+    }
+
     const preRenderedPlaceholders: { [key: string]: string } = {
         'partyA_list': generateMultiplePartiesHtml(data.partyA),
         'partyB_list': generateMultiplePartiesHtml(data.partyB),
@@ -200,6 +241,13 @@ export const getDocumentContent = (template: DocumentTemplate, data: ExtractedDa
         'landInfo_list': data.landInfo?.map(land => generateLandInfoHtml(land)).join('<br><hr style="border: none; border-top: 1px dashed #ccc; margin: 1em 0;"><br>') || '',
         'signature_block': generateSignaturesHtml(data.partyA, data.partyB, sigLabelA, sigLabelB),
         'heir_signature_block': generateHeirSignaturesHtml(data.heirs),
+        
+        // New blocks for Heirs Confirmation
+        'heirs_father_block': heirsFather,
+        'heirs_mother_block': heirsMother,
+        'heirs_spouse_block': heirsSpouse,
+        'heirs_children_block': heirsChildren,
+        'heirs_children_count': childrenCount.toString(),
     };
 
     const combinedData = {

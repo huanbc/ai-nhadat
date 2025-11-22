@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData, PartyData, LandData, DocumentTemplateKey, VehicleData } from '../types';
 import { numberToWords } from '../utils/numberToWords';
@@ -41,6 +42,22 @@ const InputField: React.FC<{ label: string; value: string; onChange: (e: React.C
     </div>
 );
 
+const SelectField: React.FC<{ label: string; value: string; options: string[]; onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void; }> = ({ label, value, options, onChange }) => (
+    <div>
+        <label className="block text-sm font-medium text-slate-700">{label}</label>
+        <select
+            value={value}
+            onChange={onChange}
+            className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+        >
+            <option value="">-- Chọn --</option>
+            {options.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+            ))}
+        </select>
+    </div>
+);
+
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
         <h3 className="text-xl font-semibold text-slate-800 mb-4 border-b border-slate-200 pb-2">{title}</h3>
@@ -50,7 +67,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
     </div>
 );
 
-const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyData) => void; }> = ({ party, onChange }) => {
+const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyData) => void; showRelationship?: boolean }> = ({ party, onChange, showRelationship }) => {
     const handleChange = (field: keyof PartyData, value: string) => {
         onChange({ ...party, [field]: value });
     };
@@ -59,6 +76,14 @@ const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyDa
         <div className="space-y-4 p-4 border border-slate-200 rounded-md bg-slate-50 col-span-1 md:col-span-2 lg:col-span-3">
             <h4 className="font-semibold text-lg text-slate-700">{party.fullName || 'Chưa có tên'}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {showRelationship && (
+                    <SelectField 
+                        label="Quan hệ với người để lại di sản" 
+                        value={party.relationship || ''} 
+                        options={['Bố đẻ', 'Mẹ đẻ', 'Vợ/Chồng', 'Con đẻ', 'Con nuôi', 'Khác']} 
+                        onChange={(e) => handleChange('relationship', e.target.value)} 
+                    />
+                )}
                 <InputField label="Họ và tên" value={party.fullName || ''} onChange={(e) => handleChange('fullName', e.target.value)} />
                 <InputField label="Ngày sinh (DD/MM/YYYY)" value={party.dateOfBirth || ''} onChange={(e) => handleChange('dateOfBirth', e.target.value)} />
                 <InputField label="Giới tính" value={party.sex || ''} onChange={(e) => handleChange('sex', e.target.value)} />
@@ -69,7 +94,13 @@ const PartyEditor: React.FC<{ party: PartyData; onChange: (updatedParty: PartyDa
                 <InputField label="Nơi thường trú" value={party.permanentAddress || ''} onChange={(e) => handleChange('permanentAddress', e.target.value)} />
                 <InputField label="Nơi ở hiện tại" value={party.currentAddress || ''} onChange={(e) => handleChange('currentAddress', e.target.value)} />
                 <InputField label="Số điện thoại" value={party.phoneNumber || ''} onChange={(e) => handleChange('phoneNumber', e.target.value)} />
-                 {party.dateOfDeath !== undefined && <InputField label="Ngày mất" value={party.dateOfDeath || ''} onChange={(e) => handleChange('dateOfDeath', e.target.value)} />}
+                 {(party.dateOfDeath !== undefined || party.deathCertificateNumber !== undefined) && (
+                    <>
+                        <InputField label="Ngày mất" value={party.dateOfDeath || ''} onChange={(e) => handleChange('dateOfDeath', e.target.value)} />
+                        <InputField label="Số Trích lục khai tử" value={party.deathCertificateNumber || ''} onChange={(e) => handleChange('deathCertificateNumber', e.target.value)} />
+                        <InputField label="Ngày cấp Trích lục" value={party.deathCertificateIssueDate || ''} onChange={(e) => handleChange('deathCertificateIssueDate', e.target.value)} />
+                    </>
+                 )}
             </div>
         </div>
     );
@@ -135,15 +166,43 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
     };
     
     const isTransfer = template.key === 'transfer';
+    const isHeirsConfirmation = template.key === DocumentTemplateKey.HEIRS_CONFIRMATION;
 
     const renderPartySection = (title: string, partyType: 'partyA' | 'partyB' | 'heirs' | 'deceasedPersons') => {
         const parties = editedData[partyType];
         if (!parties || parties.length === 0) return null;
+        
+        // Special label for Heirs Confirmation
+        let displayTitle = title;
+        if (isHeirsConfirmation && partyType === 'heirs') {
+            displayTitle = "Danh sách Hàng thừa kế (Bố, Mẹ, Vợ/Chồng, Con)";
+        }
+
         return (
-            <Section title={title}>
+            <Section title={displayTitle}>
                 {parties.map((party, index) => (
-                    <PartyEditor key={index} party={party} onChange={(updated) => handlePartyChange(partyType, index, updated)} />
+                    <PartyEditor 
+                        key={index} 
+                        party={party} 
+                        onChange={(updated) => handlePartyChange(partyType, index, updated)} 
+                        showRelationship={isHeirsConfirmation && partyType === 'heirs'}
+                    />
                 ))}
+                {isHeirsConfirmation && partyType === 'heirs' && (
+                    <div className="col-span-full text-center">
+                        <button 
+                            onClick={() => {
+                                setEditedData(prev => ({
+                                    ...prev,
+                                    heirs: [...(prev.heirs || []), { fullName: 'Người mới', relationship: 'Con đẻ' }]
+                                }));
+                            }}
+                            className="text-sm text-blue-600 font-medium hover:text-blue-800"
+                        >
+                            + Thêm người thừa kế
+                        </button>
+                    </div>
+                )}
             </Section>
         );
     };
@@ -163,10 +222,10 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, initia
                 </p>
             </div>
             
-            {renderPartySection('Bên A (Bên Bán/Tặng cho/Thừa kế/Làm đơn)', 'partyA')}
+            {renderPartySection(isHeirsConfirmation ? 'Người làm đơn' : 'Bên A (Bên Bán/Tặng cho/Thừa kế/Làm đơn)', 'partyA')}
             {renderPartySection('Bên B (Bên Mua/Nhận tặng cho)', 'partyB')}
-            {renderPartySection('Người Thừa kế', 'heirs')}
             {renderPartySection('Người để lại Di sản', 'deceasedPersons')}
+            {renderPartySection('Người Thừa kế', 'heirs')}
             
             {(editedData.landInfo && editedData.landInfo.length > 0) && (
                 <Section title="Thông tin Thửa đất">

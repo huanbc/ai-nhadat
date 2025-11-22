@@ -1,13 +1,10 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { DOCUMENT_TEMPLATES } from '../constants';
 import { DocumentTemplate, DocumentTemplateKey, UploadedFile, Procedure, LandPrice } from '../types';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLegalDocumentStore } from '../hooks/useLegalDocumentStore';
-import { checkAndAnalyzeDocuments, quickExtractPersonalInfo } from '../services/geminiService';
+import { checkAndAnalyzeDocuments, quickExtractPersonalInfo, consultWithAI } from '../services/geminiService';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { DirectiveResponseGenerator } from './DirectiveResponseGenerator';
 
@@ -35,6 +32,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
 
   // State for AI Q&A
   const [prompt, setPrompt] = useState('');
+  const [consultationField, setConsultationField] = useState<'land2024' | 'other' | 'general'>('land2024');
   const [consultationResponse, setConsultationResponse] = useState('');
   const [isConsulting, setIsConsulting] = useState(false);
   const [consultationError, setConsultationError] = useState('');
@@ -150,7 +148,6 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
         const newFiles: UploadedFile[] = [];
         let filesToProcess = files.length;
 
-        // FIX: Explicitly type `file` as `File` to resolve type inference issues where `file` was treated as `unknown`.
         Array.from(files).forEach((file: File) => {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -177,7 +174,6 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     
     setUploadMessage('');
     
-    // FIX: Iterate directly over the FileList. `file` will be correctly typed as `File`.
     for (const file of files) {
         const base64 = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -191,15 +187,12 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
 
         if (existingDoc) {
             setUploadMessage(`Tệp "${file.name}" đã tồn tại trong thư viện. Đã tự động chọn.`);
-            // Auto-select the existing document if not already selected
             if (!selectedStoredLegalDocIds.includes(existingDoc.id)) {
                 setSelectedStoredLegalDocIds(prev => [...prev, existingDoc.id]);
             }
         } else {
             const newDoc: UploadedFile = { name: file.name, base64, mimeType: file.type };
-            // Add to temporary list for this session's check
             setLegalDocs(prev => [...prev, newDoc]);
-            // Save to persistent library
             addLegalDocument(file.name, base64, file.type, hash);
              setUploadMessage(`Đã thêm tệp mới "${file.name}" vào thư viện.`);
         }
@@ -237,47 +230,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     setSaveSuccess(false);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-      
-      const systemInstruction = `Bạn là một trợ lý pháp lý AI chuyên sâu về Luật Đất đai 2024 tại Việt Nam.
-      
-QUY TẮC QUAN TRỌNG:
-1. Mọi phân tích, tư vấn và trích dẫn luật PHẢI CĂN CỨ vào LUẬT ĐẤT ĐAI 2024 và các Nghị định, Thông tư hướng dẫn thi hành mới nhất.
-2. TUYỆT ĐỐI KHÔNG sử dụng, trích dẫn hoặc tư vấn dựa trên Luật Đất đai 2013 hoặc các văn bản cũ đã hết hiệu lực.
-3. Trừ khi người dùng yêu cầu rõ ràng "so sánh với luật cũ", bạn không được đề cập đến luật cũ.
-4. Khi trả lời, hãy tập trung vào các bước thực hiện, hồ sơ cần chuẩn bị, và thời gian giải quyết theo quy định mới.`;
-      
-      let requestContents;
-      if (consultationFile) {
-        requestContents = {
-          parts: [
-            { text: `Dựa vào tài liệu được đính kèm và quy định của Luật Đất đai 2024, hãy trả lời câu hỏi sau: ${prompt}` },
-            {
-              inlineData: {
-                mimeType: consultationFile.mimeType,
-                data: consultationFile.base64,
-              },
-            },
-          ],
-        };
-      } else {
-        requestContents = { parts: [{ text: prompt }] };
-      }
-
-      const modelResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: requestContents,
-        config: { systemInstruction },
-      });
-
-      setConsultationResponse(modelResponse.text);
-      if (consultationFile) {
-        setSavableResponse({ fileName: consultationFile.name, content: modelResponse.text });
-      }
-
+        const responseText = await consultWithAI(prompt, consultationField, consultationFile);
+        setConsultationResponse(responseText);
+        if (consultationFile) {
+            setSavableResponse({ fileName: consultationFile.name, content: responseText });
+        }
     } catch (err) {
       console.error(err);
-      setConsultationError('Đã có lỗi xảy ra khi kết nối với AI. Vui lòng thử lại.');
+      setConsultationError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra khi kết nối với AI.');
     } finally {
       setIsConsulting(false);
     }
@@ -429,7 +389,22 @@ QUY TẮC QUAN TRỌNG:
 
             {consultationTab === 'q&a' && (
                  <div className="pt-6 flex-grow flex flex-col space-y-4">
-                    <p className="text-slate-600 text-sm">Hỏi đáp trực tiếp với AI. Bạn có thể đính kèm một tài liệu để AI trả lời chính xác hơn.</p>
+                    <p className="text-slate-600 text-sm">Hỏi đáp trực tiếp với AI. Chọn lĩnh vực để có câu trả lời chính xác nhất.</p>
+                    
+                    <div className="w-full md:w-1/2">
+                        <label htmlFor="consultation-field" className="block text-sm font-medium text-slate-700 mb-1">Lĩnh vực quan tâm:</label>
+                        <select
+                            id="consultation-field"
+                            value={consultationField}
+                            onChange={(e) => setConsultationField(e.target.value as 'land2024' | 'other' | 'general')}
+                            className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                        >
+                            <option value="land2024">Luật Đất đai 2024 (Chính xác tuyệt đối)</option>
+                            <option value="other">Lĩnh vực Pháp luật khác (Tra cứu Search)</option>
+                            <option value="general">Tổng hợp</option>
+                        </select>
+                    </div>
+
                     <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
@@ -453,7 +428,7 @@ QUY TẮC QUAN TRỌNG:
                         className="w-full flex-grow p-3 bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[140px]"
                         aria-live="polite"
                     >
-                        {isConsulting && <p className="text-slate-500 animate-pulse">AI đang tra cứu Luật 2024 và suy nghĩ...</p>}
+                        {isConsulting && <p className="text-slate-500 animate-pulse">AI đang tra cứu và suy nghĩ...</p>}
                         {consultationError && <p className="text-red-600">{consultationError}</p>}
                         {consultationResponse && <pre className="whitespace-pre-wrap text-slate-800 text-sm font-sans">{consultationResponse}</pre>}
                         {!isConsulting && !consultationResponse && !consultationError && <p className="text-slate-400">Kết quả từ AI sẽ hiển thị ở đây.</p>}

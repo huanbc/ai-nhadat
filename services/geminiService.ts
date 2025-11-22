@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -14,6 +9,39 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+// =================================================================
+// Helper: Retry Logic
+// =================================================================
+
+async function callGeminiWithRetry(
+    callFn: () => Promise<GenerateContentResponse>,
+    retries = 3,
+    baseDelay = 2000
+): Promise<GenerateContentResponse> {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await callFn();
+        } catch (error: any) {
+            lastError = error;
+            // Retry on 500 (Internal), 503 (Service Unavailable), or 429 (Too Many Requests)
+            const errorCode = error?.status || error?.code; 
+            const errorMessage = error?.message || '';
+            
+            // Also retry on generic "Internal error" messages even if status code is missing
+            const isInternalError = errorMessage.includes("Internal error") || errorCode === 500 || errorCode === 503 || errorCode === 429;
+
+            if (isInternalError && i < retries - 1) {
+                console.warn(`Gemini API Error (${errorCode || 'Unknown'}). Retrying attempt ${i + 1}/${retries}...`);
+                await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, i))); // Exponential backoff
+                continue;
+            }
+            throw error; // Throw other errors immediately or if retries exhausted
+        }
+    }
+    throw lastError;
+}
 
 // =================================================================
 // Reusable Schemas for data extraction
@@ -37,6 +65,7 @@ const partySchema = {
         deathCertificateNumber: { type: Type.STRING, description: "Số giấy chứng tử. Chỉ điền cho người để lại di sản." },
         deathCertificateIssueDate: { type: Type.STRING, description: "Ngày cấp giấy chứng tử, định dạng DD/MM/YYYY. Chỉ điền cho người để lại di sản." },
         deathCertificateIssuer: { type: Type.STRING, description: "Nơi cấp giấy chứng tử. Chỉ điền cho người để lại di sản." },
+        relationship: { type: Type.STRING, description: "Quan hệ với người để lại di sản (Bố đẻ, Mẹ đẻ, Vợ, Chồng, Con đẻ, Con nuôi...). Chỉ điền nếu xác định được." }
     },
 };
 
@@ -113,6 +142,9 @@ Lưu ý: "Họ và tên" phải được viết IN HOA. Tất cả các trườn
 
         case 'heir_ids':
             prompt += `Bây giờ, hãy trích xuất thông tin từ (các) Căn cước công dân (CCCD) của tất cả những người thừa kế.`;
+            if (templateKey === DocumentTemplateKey.HEIRS_CONFIRMATION) {
+                prompt += ` Đối với đơn xác nhận hàng thừa kế, hãy cố gắng xác định mối quan hệ (Bố đẻ, Mẹ đẻ, Vợ, Chồng, Con đẻ) dựa trên tuổi tác và ngữ cảnh nếu có thể (nhưng ưu tiên trích xuất chính xác thông tin cá nhân).`;
+            }
             schema = { type: Type.OBJECT, properties: { heirs: partyArraySchema } };
             break;
 
@@ -155,7 +187,8 @@ Lưu ý: "Họ và tên" phải được viết IN HOA. Tất cả các trườn
 
         default:
             prompt += `Hãy trích xuất thông tin liên quan từ các tài liệu được cung cấp.`;
-            schema = { type: Type.OBJECT, properties: {} }; // Fallback schema
+            // FIX: Define schema even for default to prevent 500 errors
+            schema = { type: Type.OBJECT, properties: { additionalInfo: { type: Type.STRING } } };
             break;
     }
 
@@ -198,21 +231,21 @@ export const extractDataForStage = async (
     }
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }, ...imageParts] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: schema,
             },
-        });
+        }));
         
         const jsonString = response.text.trim();
         return JSON.parse(jsonString) as Partial<ExtractedData>;
 
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API:", error);
-        throw new Error("Không thể phân tích tài liệu. Vui lòng kiểm tra lại hình ảnh và thử lại.");
+        throw new Error("Không thể phân tích tài liệu. Vui lòng kiểm tra lại hình ảnh, đường truyền mạng và thử lại.");
     }
 };
 
@@ -348,16 +381,16 @@ ${JSON.stringify(internalLandPrices, null, 2)}
             config.tools = [{ googleSearch: {} }];
         }
         
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: allParts },
             config: config,
-        });
+        }));
 
         return response.text;
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để kiểm tra hồ sơ:", error);
-        throw new Error("Không thể kiểm tra bộ hồ sơ. Vui lòng thử lại với hình ảnh rõ nét hơn hoặc một file khác.");
+        throw new Error("Không thể kiểm tra bộ hồ sơ. Vui lòng thử lại.");
     }
 };
 
@@ -392,15 +425,15 @@ Hãy đảm bảo câu trả lời ngắn gọn, chính xác, và dễ hiểu ch
     };
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }, filePart] },
-        });
+        }));
 
         return response.text;
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để phân tích văn bản:", error);
-        throw new Error("Không thể phân tích văn bản. Vui lòng thử lại với hình ảnh rõ nét hơn hoặc một file khác.");
+        throw new Error("Không thể phân tích văn bản. Vui lòng thử lại.");
     }
 };
 
@@ -449,14 +482,14 @@ Trả về một mảng các đối tượng JSON này. Nếu không tìm thấy
     };
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }, filePart] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: responseSchema,
             },
-        });
+        }));
         
         const jsonString = response.text.trim();
         const result = JSON.parse(jsonString);
@@ -491,10 +524,10 @@ Hãy kiểm tra các yếu tố sau:
 Dưới đây là nội dung mẫu cần phân tích:\n\n---\n\n${templateContent}`;
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }] },
-        });
+        }));
         return response.text;
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để phân tích mẫu:", error);
@@ -525,10 +558,10 @@ Dựa vào những phân tích và đề xuất trên, hãy viết lại TOÀN B
 -   Đầu ra phải sẵn sàng để sử dụng ngay lập tức.`;
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-pro',
             contents: { parts: [{ text: prompt }] },
-        });
+        }));
 
         let fixedContent = response.text.trim();
         // Clean potential markdown code blocks from the response
@@ -558,10 +591,10 @@ QUAN TRỌNG: Chỉ trả về nội dung văn bản thuần túy. KHÔNG thêm 
     };
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }, filePart] },
-        });
+        }));
 
         return response.text;
     } catch (error) {
@@ -601,10 +634,10 @@ Hãy đọc kỹ TẤT CẢ các tài liệu và đưa ra một bản tóm tắt
     }
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: parts },
-        });
+        }));
         return response.text;
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để phân tích văn bản chỉ đạo:", error);
@@ -653,10 +686,10 @@ export const generateDirectiveResponse = async (
     parts.push({ text: `\n\n--- GHI CHÚ CỦA NGƯỜI DÙNG VỀ KẾT QUẢ CÔNG VIỆC --- \n${userNotes}` });
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-pro', // Use a more powerful model for this complex task
             contents: { parts: parts },
-        });
+        }));
 
         return response.text;
     } catch (error) {
@@ -694,14 +727,80 @@ Sắp xếp dữ liệu thành một danh sách được đánh số thứ tự 
     };
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }, filePart] },
-        });
+        }));
 
         return response.text;
     } catch (error) {
         console.error("Lỗi khi gọi Gemini API để trích xuất thông tin nhanh:", error);
         throw new Error("Không thể trích xuất thông tin. Vui lòng thử lại.");
+    }
+};
+
+export const consultWithAI = async (
+    query: string,
+    field: 'land2024' | 'other' | 'general',
+    file: UploadedFile | null
+): Promise<string> => {
+    let systemInstruction = `Bạn là một trợ lý pháp lý chuyên nghiệp tại Việt Nam.`;
+    const tools: any[] = [];
+
+    if (field === 'land2024') {
+        systemInstruction += `
+QUY TẮC QUAN TRỌNG (Lĩnh vực A - Luật Đất đai 2024):
+1. Chỉ sử dụng Luật Đất đai số 31/2024/QH15 (có hiệu lực từ 01/08/2024) và các Nghị định/Thông tư hướng dẫn mới nhất.
+2. TUYỆT ĐỐI KHÔNG sử dụng, trích dẫn Luật Đất đai 2013 đã hết hiệu lực.
+3. Trích dẫn cụ thể điều khoản (Ví dụ: Khoản 1 Điều 24 Luật Đất đai 2024).`;
+    } else {
+        systemInstruction += `
+QUY TẮC QUAN TRỌNG (Lĩnh vực B/C - Pháp luật khác/Tổng hợp):
+1. Tự tìm kiếm và sử dụng tài liệu pháp luật liên quan mới nhất có hiệu lực tại thời điểm hiện tại (năm 2024/2025).
+2. Ví dụ: Luật Xây dựng 2020, Luật Kinh doanh Bất động sản 2023, Luật Nhà ở 2023.
+3. Tuyệt đối không trả lời bằng các văn bản đã hết hiệu lực.`;
+        tools.push({ googleSearch: {} });
+    }
+
+    systemInstruction += `
+CẤU TRÚC CÂU TRẢ LỜI:
+1. Tóm tắt Vấn đề: Nhắc lại vấn đề cốt lõi.
+2. Cơ sở Pháp lý: Tên văn bản, số, năm ban hành, điều khoản.
+3. Tư vấn Giải pháp: Trình bày rõ ràng, từng bước.
+4. Khuyến nghị/Lưu ý: Lời khuyên về rủi ro hoặc bước tiếp theo.`;
+
+    let requestContents;
+    const textPart = `Người hỏi (Lĩnh vực: ${field}): ${query}`;
+
+    if (file) {
+        requestContents = {
+            parts: [
+                { text: textPart },
+                {
+                    inlineData: {
+                        mimeType: file.mimeType,
+                        data: file.base64,
+                    },
+                },
+            ],
+        };
+    } else {
+        requestContents = { parts: [{ text: textPart }] };
+    }
+
+    try {
+        const response = await callGeminiWithRetry(() => ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: requestContents,
+            config: {
+                systemInstruction,
+                tools: tools.length > 0 ? tools : undefined,
+                // Note: responseMimeType cannot be JSON when using googleSearch
+            },
+        }));
+        return response.text;
+    } catch (error: any) {
+        console.error("Lỗi khi gọi Gemini API để tham vấn:", error);
+        throw new Error(`Không thể trả lời câu hỏi. Lỗi: ${error.message || 'Lỗi không xác định'}`);
     }
 };

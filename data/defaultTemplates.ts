@@ -1,3 +1,4 @@
+
 import { DocumentTemplateKey, SubTemplateKey } from '../types';
 
 const transferTemplate = `
@@ -462,7 +463,8 @@ const vehicleOriginTemplate = `
         .italic { font-style: italic; }
         .header { text-align: center; font-weight: bold; margin-bottom: 1em;}
         h2 { font-size: 16pt; font-weight: bold; text-align: center; margin: 1em 0; }
-        .checkbox-item { margin-left: 0.5cm; margin-bottom: 0.5em; }
+        .checkbox-item { margin-left: 0.5cm; margin-bottom: 0.5em; font-size: 14pt;}
+        .checkbox-icon { font-family: 'Arial', sans-serif; font-size: 16pt; margin-right: 5px; }
     </style>
 </head>
 <body>
@@ -494,15 +496,100 @@ const vehicleOriginTemplate = `
     </div>
 
     <p><span class="bold">Lý do xin xác nhận:</span></p>
-    <p class="checkbox-item">☐ Mua bán viết tay, không có hóa đơn.</p>
-    <p class="checkbox-item">☐ Xe để lâu năm thất lạc giấy tờ.</p>
-    <p class="checkbox-item">☐ Xe gia truyền/cha mẹ để lại.</p>
-    <p class="checkbox-item">☐ Hợp thức hóa hồ sơ để làm thủ tục đăng ký sang tên.</p>
-    <p class="checkbox-item">☐ Lý do khác: ....................................................................................................</p>
+    <div style="margin-left: 1cm;">
+        <p class="checkbox-item"><span class="checkbox-icon">☐</span> Mua bán viết tay, không có hóa đơn.</p>
+        <p class="checkbox-item"><span class="checkbox-icon">☐</span> Xe để lâu năm thất lạc giấy tờ.</p>
+        <p class="checkbox-item"><span class="checkbox-icon">☐</span> Xe gia truyền/cha mẹ để lại.</p>
+        <p class="checkbox-item"><span class="checkbox-icon">☐</span> Hợp thức hóa hồ sơ để làm thủ tục đăng ký sang tên.</p>
+        <p class="checkbox-item"><span class="checkbox-icon">☐</span> Lý do khác: ....................................................................................................</p>
+    </div>
     
     <p>Tôi xin xác nhận nguồn gốc phương tiện để hoàn thiện thủ tục đăng ký theo quy định.</p>
 
     <p>Tôi xin cam đoan phương tiện không phải tài sản trộm cắp, không tranh chấp và tôi hoàn toàn chịu trách nhiệm trước pháp luật.</p>
+    <br>
+
+    <div style="text-align: right;">
+        <p class="italic">............., ngày {{documentDate.day}} tháng {{documentDate.month}} năm {{documentDate.year}}</p>
+        <div style="text-align: center; display: inline-block; width: 50%;">
+             <p class="bold">Người làm đơn</p>
+             <p class="italic">(Ký và ghi rõ họ tên)</p>
+             <br><br><br><br>
+             <p class="bold">{{partyA[0].fullName}}</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
+const heirsConfirmationTemplate = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đơn xin xác nhận hàng thừa kế thứ nhất</title>
+    <style>
+        body { font-family: 'Times New Roman', Times, serif; font-size: 14pt; line-height: 1.5; margin: 2cm 2cm 2cm 3cm; }
+        p { text-align: justify; margin: 0 0 0.5em 0; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        .header { text-align: center; font-weight: bold; margin-bottom: 1em;}
+        h2 { font-size: 16pt; font-weight: bold; text-align: center; margin: 1em 0; text-transform: uppercase; }
+        .section { margin-bottom: 1em; }
+        .heir-list { margin-left: 1cm; }
+        .sub-info { font-size: 13pt; font-style: italic; margin-left: 1cm; margin-bottom: 0.5em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <p style="margin: 0;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+        <p style="margin: 0;">Độc lập - Tự do - Hạnh phúc</p>
+    </div>
+
+    <h2>ĐƠN XIN XÁC NHẬN HÀNG THỪA KẾ THỨ NHẤT</h2>
+
+    <p class="center">Kính gửi: Ủy ban nhân dân xã/phường .............................................</p>
+    <br>
+
+    <p>Tôi tên là: <span class="bold">{{partyA[0].fullName}}</span></p>
+    <p>Sinh năm: {{partyA[0].dateOfBirth}}</p>
+    <p>CCCD số: {{partyA[0].idNumber}} cấp ngày {{partyA[0].idIssueDate}} tại {{partyA[0].idIssuePlace}}</p>
+    <p>Nơi thường trú: {{partyA[0].permanentAddress}}</p>
+
+    <p>Tôi làm đơn này đề nghị UBND xã/phường xác nhận về hàng thừa kế thứ nhất của:</p>
+    <p>Ông/Bà: <span class="bold">{{deceasedPersons[0].fullName}}</span></p>
+    <p>Sinh năm: {{deceasedPersons[0].dateOfBirth}}</p>
+    <p>Đã chết ngày: {{deceasedPersons[0].dateOfDeath}} tại {{deceasedPersons[0].placeOfOrigin}}</p>
+    <p>Theo Trích lục khai tử số: {{deceasedPersons[0].deathCertificateNumber}} do {{deceasedPersons[0].deathCertificateIssuer}} cấp ngày {{deceasedPersons[0].deathCertificateIssueDate}}.</p>
+
+    <p class="bold">Thông tin về hàng thừa kế thứ nhất gồm:</p>
+
+    <div class="section">
+        <p>1. Bố đẻ:</p>
+        {{heirs_father_block}}
+    </div>
+
+    <div class="section">
+        <p>2. Mẹ đẻ:</p>
+        {{heirs_mother_block}}
+    </div>
+
+    <div class="section">
+        <p>3. Vợ/Chồng của người để lại di sản:</p>
+        {{heirs_spouse_block}}
+    </div>
+
+    <div class="section">
+        <p>4. Các con đẻ (con chung):</p>
+        <p>Tổng số con: {{heirs_children_count}}</p>
+        <div class="heir-list">
+            {{heirs_children_block}}
+        </div>
+    </div>
+
+    <p>Ngoài ra Người để lại di sản không có người con đẻ, con nuôi, bố mẹ nuôi nào khác.</p>
+    <p>Tôi xin cam đoan sẽ chịu hoàn toàn trách nhiệm trước pháp luật về nội dung mà tôi đề nghị xác nhận cho tôi.</p>
     <br>
 
     <div style="text-align: right;">
@@ -533,6 +620,7 @@ const defaultTemplates: { [key in DocumentTemplateKey]?: { [key in SubTemplateKe
     [DocumentTemplateKey.LAND_USE_CHANGE]: landUseChangeTemplate,
     [DocumentTemplateKey.TAX_EXEMPTION_REQUEST]: taxExemptionTemplate,
     [DocumentTemplateKey.VEHICLE_ORIGIN_CONFIRMATION]: vehicleOriginTemplate,
+    [DocumentTemplateKey.HEIRS_CONFIRMATION]: heirsConfirmationTemplate,
     // Add other default templates here
 };
 

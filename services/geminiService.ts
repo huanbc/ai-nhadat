@@ -49,7 +49,8 @@ async function callGeminiWithRetry(
                  throw error;
             }
 
-            throw error; // Throw other errors immediately or if retries exhausted
+            // For other errors, we generally stop, but you could add more conditions here
+            if (i === retries - 1) throw error;
         }
     }
     throw lastError;

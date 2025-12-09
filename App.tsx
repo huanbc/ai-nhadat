@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { TemplateSelector } from './components/TemplateSelector';
 import { SubTemplateSelector } from './components/SubTemplateSelector';
@@ -58,6 +57,7 @@ const App: React.FC = () => {
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [storageWarningShown, setStorageWarningShown] = useState(false);
 
   useEffect(() => {
     if (!appStarted) return; // Don't check for saved state until app is started
@@ -113,10 +113,15 @@ const App: React.FC = () => {
           customTemplateContent,
         };
         localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
-    } catch(e) {
+        setStorageWarningShown(false); // Reset warning if save succeeds
+    } catch(e: any) {
        console.error("Could not save to local storage", e);
+       if ((e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') && !storageWarningShown) {
+           alert("CẢNH BÁO: Bộ nhớ trình duyệt đã đầy! Ứng dụng không thể tự động lưu tiến trình soạn thảo. Vui lòng xóa bớt các tài liệu đã lưu trong 'Thư viện Tài liệu' hoặc 'Văn bản Trình ký' để giải phóng dung lượng.");
+           setStorageWarningShown(true);
+       }
     }
-  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent]);
+  }, [currentStep, selectedTemplate, selectedSubTemplateKey, uploadedFiles, extractedData, finalData, editingDocumentId, uploadSequence, currentUploadIndex, customTemplateContent, storageWarningShown]);
 
   // Auto-save effect
   useEffect(() => {
@@ -126,7 +131,9 @@ const App: React.FC = () => {
 
   const handleManualSaveDraft = () => {
       saveToLocalStorage();
-      alert("Đã lưu bản nháp thành công! Bạn có thể đóng trình duyệt và tiếp tục sau.");
+      if (!storageWarningShown) {
+          alert("Đã lưu bản nháp thành công! Bạn có thể đóng trình duyệt và tiếp tục sau.");
+      }
   };
 
   const handleResume = () => {

@@ -17,10 +17,13 @@ export const createBackup = () => {
             data: {}
         };
 
+        let hasData = false;
+
         // Lấy dữ liệu từ tất cả các key
         Object.values(STORAGE_KEYS).forEach(key => {
             const rawData = localStorage.getItem(key);
             if (rawData) {
+                hasData = true;
                 try {
                     backupData.data[key] = JSON.parse(rawData);
                 } catch (e) {
@@ -29,8 +32,23 @@ export const createBackup = () => {
             }
         });
 
+        if (!hasData) {
+            alert("Không có dữ liệu nào để sao lưu. Hãy soạn thảo một số văn bản trước!");
+            return false;
+        }
+
+        // Serialize data safely
+        let jsonString = '';
+        try {
+            jsonString = JSON.stringify(backupData, null, 2);
+        } catch (e) {
+            console.error("Lỗi khi chuyển đổi dữ liệu sang JSON:", e);
+            alert("Lỗi sao lưu: Dữ liệu quá lớn (thường do chứa nhiều ảnh/PDF). Vui lòng xóa bớt các tài liệu trong thư viện và thử lại.");
+            return false;
+        }
+
         // Tạo file blob
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         
         // Tạo link tải xuống ảo
@@ -41,13 +59,15 @@ export const createBackup = () => {
         a.click();
         
         // Dọn dẹp
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url); 
+        }, 0);
         
         return true;
     } catch (error) {
         console.error("Lỗi khi tạo sao lưu:", error);
-        alert("Không thể tạo file sao lưu. Vui lòng thử lại.");
+        alert(`Không thể tạo file sao lưu. Lỗi: ${error instanceof Error ? error.message : 'Không xác định'}`);
         return false;
     }
 };
@@ -70,10 +90,17 @@ export const restoreBackup = (file: File, onSuccess: () => void) => {
             Object.entries(dataToRestore).forEach(([key, value]) => {
                 // Chỉ khôi phục các key thuộc hệ thống của app (để tránh ghi đè rác)
                 if (Object.values(STORAGE_KEYS).includes(key)) {
-                    if (typeof value === 'object') {
-                        localStorage.setItem(key, JSON.stringify(value));
-                    } else {
-                        localStorage.setItem(key, String(value));
+                    try {
+                        if (typeof value === 'object') {
+                            localStorage.setItem(key, JSON.stringify(value));
+                        } else {
+                            localStorage.setItem(key, String(value));
+                        }
+                    } catch (e) {
+                        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+                            alert('Lỗi: Bộ nhớ trình duyệt đã đầy khi đang khôi phục. Một phần dữ liệu có thể bị thiếu. Vui lòng dọn dẹp bộ nhớ trước khi thử lại.');
+                            throw e;
+                        }
                     }
                 }
             });
@@ -84,7 +111,7 @@ export const restoreBackup = (file: File, onSuccess: () => void) => {
 
         } catch (error) {
             console.error("Lỗi khi khôi phục:", error);
-            alert("Lỗi: File sao lưu bị hỏng hoặc không đúng định dạng.");
+            alert("Lỗi: File sao lưu bị hỏng, không đúng định dạng hoặc bộ nhớ đầy.");
         }
     };
     reader.readAsText(file);

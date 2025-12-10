@@ -650,7 +650,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       
        {activeTab === 'procedures' && (
           <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Thủ tục Hành chính</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Thủ tục Hành chính (Luật Đất đai 2024)</h3>
             <div className="mb-4 flex space-x-2">
                 <AuthorityButton level="all" label="Tất cả" />
                 <AuthorityButton level="cấp tỉnh" label="Cấp Tỉnh" />
@@ -672,40 +672,93 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 {procedureCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-4">
                 {filteredProcedures.map(proc => (
-                    <div key={proc.id} className="border border-slate-200 rounded-md">
-                        <button onClick={() => toggleProcedure(proc.id)} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center">
-                            <span className="font-semibold text-blue-800">{proc.title}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${activeProcedureId === proc.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div key={proc.id} className="border border-slate-200 rounded-md shadow-sm bg-white">
+                        <button onClick={() => toggleProcedure(proc.id)} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center rounded-t-md focus:outline-none">
+                            <span className="font-semibold text-blue-800 text-lg">{proc.title}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 text-slate-500 transition-transform ${activeProcedureId === proc.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                         {activeProcedureId === proc.id && (
-                            <div className="p-4 bg-white text-sm">
-                                <p className="text-slate-600 mb-4">{proc.description}</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <p><strong>Đối tượng:</strong> {proc.applicableTo}</p>
-                                    <p><strong>Thời gian giải quyết:</strong> {proc.duration}</p>
+                            <div className="p-6 bg-white text-sm border-t border-slate-200">
+                                <div className="mb-6">
+                                  <h4 className="text-base font-bold text-slate-800 mb-2 uppercase border-b pb-1">1. Thông tin chung</h4>
+                                  <p className="text-slate-700 mb-2"><span className="font-semibold">Mô tả:</span> {proc.description}</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <p><span className="font-semibold">Đối tượng thực hiện:</span> {proc.applicableTo}</p>
+                                      <p><span className="font-semibold">Thời gian giải quyết:</span> <span className="text-red-600 font-bold">{proc.duration}</span></p>
+                                  </div>
                                 </div>
-                                <div className="mb-4">
-                                    <h4 className="font-semibold mb-2">Hồ sơ cần chuẩn bị:</h4>
-                                    <ul className="list-disc list-inside space-y-1 text-slate-700">
-                                        {proc.documents.map((doc, i) => <li key={i}>{doc}</li>)}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold mb-2">Các bước thực hiện:</h4>
-                                    <ol className="list-decimal list-inside space-y-2 text-slate-700">
-                                        {proc.steps.map((step, i) => <li key={i}>{step}</li>)}
-                                    </ol>
-                                </div>
+
+                                {proc.documents && proc.documents.length > 0 && (
+                                  <div className="mb-6">
+                                      <h4 className="text-base font-bold text-slate-800 mb-2 uppercase border-b pb-1">2. Thành phần hồ sơ</h4>
+                                      <ul className="list-disc list-inside space-y-1 text-slate-700 bg-slate-50 p-3 rounded-md border border-slate-100">
+                                          {proc.documents.map((doc, i) => <li key={i}>{doc}</li>)}
+                                      </ul>
+                                  </div>
+                                )}
+
+                                {proc.internalSteps && proc.internalSteps.length > 0 ? (
+                                    <div className="mb-6">
+                                        <h4 className="text-base font-bold text-slate-800 mb-2 uppercase border-b pb-1">3. Quy trình giải quyết nội bộ</h4>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full text-sm text-left text-slate-700 border border-slate-200 rounded-md">
+                                                <thead className="text-xs text-slate-700 uppercase bg-blue-50 border-b border-slate-200">
+                                                    <tr>
+                                                        <th scope="col" className="px-4 py-3 border-r">Bước</th>
+                                                        <th scope="col" className="px-4 py-3 border-r">Tên công việc / Trình tự</th>
+                                                        <th scope="col" className="px-4 py-3 border-r">Đơn vị / Người thực hiện</th>
+                                                        <th scope="col" className="px-4 py-3">Thời gian</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {proc.internalSteps.map((step, idx) => (
+                                                        <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                                                            <td className="px-4 py-3 border-r font-medium text-slate-900 whitespace-nowrap">{step.step}</td>
+                                                            <td className="px-4 py-3 border-r">{step.task}</td>
+                                                            <td className="px-4 py-3 border-r">{step.unit}</td>
+                                                            <td className="px-4 py-3 font-semibold text-blue-700 whitespace-nowrap">{step.time}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                   <div className="mb-6">
+                                      <h4 className="text-base font-bold text-slate-800 mb-2 uppercase border-b pb-1">3. Các bước thực hiện</h4>
+                                      <ol className="list-decimal list-inside space-y-2 text-slate-700">
+                                          {proc.steps.map((step, i) => <li key={i}>{step}</li>)}
+                                      </ol>
+                                  </div>
+                                )}
+
+                                {proc.legalBasis && proc.legalBasis.length > 0 && (
+                                   <div>
+                                      <h4 className="text-base font-bold text-slate-800 mb-2 uppercase border-b pb-1">4. Căn cứ pháp lý</h4>
+                                      <div className="flex flex-wrap gap-2">
+                                          {proc.legalBasis.map((law, i) => (
+                                              <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                  {law}
+                                              </span>
+                                          ))}
+                                      </div>
+                                  </div>
+                                )}
                             </div>
                         )}
                     </div>
                 ))}
                 {filteredProcedures.length === 0 && (
-                    <p className="text-center text-slate-500 py-8">Không tìm thấy thủ tục phù hợp.</p>
+                    <div className="text-center py-12 bg-white rounded-md border border-slate-200">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="mt-2 text-slate-500">Không tìm thấy thủ tục phù hợp với từ khóa.</p>
+                    </div>
                 )}
             </div>
           </div>

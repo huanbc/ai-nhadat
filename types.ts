@@ -212,6 +212,14 @@ export interface StoredOfficialDocument {
   directiveAnalysis: string;
 }
 
+export interface ProcedureStep {
+    step: string;
+    task: string;
+    unit: string; // Bộ phận xử lý
+    time: string; // Thời gian giải quyết
+    notes?: string; // Ghi chú thêm
+}
+
 export interface Procedure {
   id: string;
   category: string;
@@ -220,7 +228,9 @@ export interface Procedure {
   applicableTo: string;
   duration: string;
   documents: string[];
-  steps: string[];
+  steps: string[]; // Các bước cơ bản (giữ lại để tương thích ngược hoặc tóm tắt)
+  internalSteps?: ProcedureStep[]; // Quy trình nội bộ chi tiết
+  legalBasis?: string[]; // Căn cứ pháp lý
   authority: 'cấp tỉnh' | 'cấp xã';
 }
 

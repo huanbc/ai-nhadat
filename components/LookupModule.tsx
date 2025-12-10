@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
-import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument } from '../types';
+import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, InternalProcedure } from '../types';
 import { analyzeAndSummarizeDocument, extractPriceDataFromDocument, quickExtractPersonalInfo } from '../services/geminiService';
 import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
 import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
@@ -17,6 +17,7 @@ interface LookupModuleProps {
 
 type AuthorityLevel = 'all' | 'cấp tỉnh' | 'cấp xã';
 type LibrarySubTab = 'drafted' | 'analyzed' | 'official';
+type ProcedureSubTab = 'public' | 'internal';
 
 interface MapRecord {
     id: string;
@@ -64,12 +65,15 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
 
 
   // State for Procedure Lookup
+  const [procedureSubTab, setProcedureSubTab] = useState<ProcedureSubTab>('public');
   const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [internalProcedures, setInternalProcedures] = useState<InternalProcedure[]>([]);
   const [procedureSearchQuery, setProcedureSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [activeProcedureId, setActiveProcedureId] = useState<string | null>(null);
   const [procedureError, setProcedureError] = useState('');
   const [selectedAuthority, setSelectedAuthority] = useState<AuthorityLevel>('all');
+  const [activeInternalProcId, setActiveInternalProcId] = useState<string | null>(null);
   
   // State for Quick Extract Tool
   const [quickExtractFile, setQuickExtractFile] = useState<UploadedFile | null>(null);
@@ -158,6 +162,12 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
         if (!procResponse.ok) throw new Error(`Không thể tải file thủ tục.`);
         const procData = await procResponse.json();
         setProcedures(procData);
+        
+        const internalProcResponse = await fetch('/data/internalProcedures.json');
+        if (internalProcResponse.ok) {
+            const internalProcData = await internalProcResponse.json();
+            setInternalProcedures(internalProcData);
+        }
 
         const priceResponse = await fetch('/data/landPrices.json');
         if (!priceResponse.ok) throw new Error(`Không thể tải file giá đất.`);
@@ -343,6 +353,16 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
       });
   }, [procedures, procedureSearchQuery, selectedCategory, selectedAuthority]);
 
+   const filteredInternalProcedures = useMemo(() => {
+    if (!procedureSearchQuery) return internalProcedures;
+    const searchLower = procedureSearchQuery.toLowerCase();
+    return internalProcedures.filter(proc => 
+        proc.title.toLowerCase().includes(searchLower) ||
+        proc.procedureCode.toLowerCase().includes(searchLower)
+    );
+  }, [internalProcedures, procedureSearchQuery]);
+
+
   const filteredDocuments = useMemo(() => {
     return documents
       .filter(doc => {
@@ -415,6 +435,10 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
 
   const toggleProcedure = (id: string) => {
     setActiveProcedureId(prevId => prevId === id ? null : id);
+  };
+
+  const toggleInternalProcedure = (id: string) => {
+    setActiveInternalProcId(prevId => prevId === id ? null : id);
   };
   
   const toggleAnalyzedDoc = (id: string) => {
@@ -856,65 +880,145 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
       
        {activeTab === 'procedures' && (
           <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Thủ tục Hành chính</h3>
-            <div className="mb-4 flex space-x-2">
-                <AuthorityButton level="all" label="Tất cả" />
-                <AuthorityButton level="cấp tỉnh" label="Cấp Tỉnh" />
-                <AuthorityButton level="cấp xã" label="Cấp Xã" />
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-slate-900">Tra cứu Thủ tục Hành chính</h3>
+              <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-lg">
+                <button onClick={() => setProcedureSubTab('public')} className={`px-3 py-1.5 text-sm rounded-md ${procedureSubTab === 'public' ? 'bg-blue-600 text-white font-semibold' : 'bg-transparent text-slate-600 hover:bg-slate-200'}`}>Thủ tục Công bố</button>
+                <button onClick={() => setProcedureSubTab('internal')} className={`px-3 py-1.5 text-sm rounded-md ${procedureSubTab === 'internal' ? 'bg-blue-600 text-white font-semibold' : 'bg-transparent text-slate-600 hover:bg-slate-200'}`}>Quy trình Nội bộ</button>
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <input
-                type="text"
-                placeholder="Tìm theo tên thủ tục..."
-                value={procedureSearchQuery}
-                onChange={(e) => setProcedureSearchQuery(e.target.value)}
-                className="md:col-span-2 w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-              <select 
-                value={selectedCategory}
-                onChange={e => setSelectedCategory(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition bg-white"
-              >
-                {procedureCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-            </div>
-            <div className="space-y-2">
-                {filteredProcedures.map(proc => (
-                    <div key={proc.id} className="border border-slate-200 rounded-md">
-                        <button onClick={() => toggleProcedure(proc.id)} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center">
-                            <span className="font-semibold text-blue-800">{proc.title}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${activeProcedureId === proc.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        {activeProcedureId === proc.id && (
-                            <div className="p-4 bg-white text-sm">
-                                <p className="text-slate-600 mb-4">{proc.description}</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <p><strong>Đối tượng:</strong> {proc.applicableTo}</p>
-                                    <p><strong>Thời gian giải quyết:</strong> {proc.duration}</p>
+
+            {procedureSubTab === 'public' && (
+              <div>
+                <div className="mb-4 flex space-x-2">
+                    <AuthorityButton level="all" label="Tất cả" />
+                    <AuthorityButton level="cấp tỉnh" label="Cấp Tỉnh" />
+                    <AuthorityButton level="cấp xã" label="Cấp Xã" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <input type="text" placeholder="Tìm theo tên thủ tục..." value={procedureSearchQuery} onChange={(e) => setProcedureSearchQuery(e.target.value)} className="md:col-span-2 w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition" />
+                  <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition bg-white">
+                    {procedureCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                    {filteredProcedures.map(proc => (
+                        <div key={proc.id} className="border border-slate-200 rounded-md">
+                            <button onClick={() => toggleProcedure(proc.id)} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center">
+                                <span className="font-semibold text-blue-800">{proc.title}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${activeProcedureId === proc.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            {activeProcedureId === proc.id && (
+                                <div className="p-4 bg-white text-sm">
+                                    <p className="text-slate-600 mb-4">{proc.description}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <p><strong>Đối tượng:</strong> {proc.applicableTo}</p>
+                                        <p><strong>Thời gian giải quyết:</strong> {proc.duration}</p>
+                                    </div>
+                                    <div className="mb-4">
+                                        <h4 className="font-semibold mb-2">Hồ sơ cần chuẩn bị:</h4>
+                                        <ul className="list-disc list-inside space-y-1 text-slate-700">
+                                            {proc.documents.map((doc, i) => <li key={i}>{doc}</li>)}
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold mb-2">Các bước thực hiện:</h4>
+                                        <ol className="list-decimal list-inside space-y-2 text-slate-700">
+                                            {proc.steps.map((step, i) => <li key={i}>{step}</li>)}
+                                        </ol>
+                                    </div>
                                 </div>
-                                <div className="mb-4">
-                                    <h4 className="font-semibold mb-2">Hồ sơ cần chuẩn bị:</h4>
-                                    <ul className="list-disc list-inside space-y-1 text-slate-700">
-                                        {proc.documents.map((doc, i) => <li key={i}>{doc}</li>)}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold mb-2">Các bước thực hiện:</h4>
-                                    <ol className="list-decimal list-inside space-y-2 text-slate-700">
-                                        {proc.steps.map((step, i) => <li key={i}>{step}</li>)}
-                                    </ol>
-                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {filteredProcedures.length === 0 && !procedureError && <p className="text-center text-slate-500 py-8">Không tìm thấy thủ tục phù hợp.</p>}
+                    {procedureError && <p className="text-center text-red-500 py-8">{procedureError}</p>}
+                </div>
+              </div>
+            )}
+            
+            {procedureSubTab === 'internal' && (
+                <div className="pt-4">
+                    <input type="text" placeholder="Tìm theo tên quy trình nội bộ..." value={procedureSearchQuery} onChange={(e) => setProcedureSearchQuery(e.target.value)} className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition mb-6" />
+                    <div className="space-y-3">
+                        {filteredInternalProcedures.map(proc => (
+                            <div key={proc.id} className="border border-slate-200 rounded-md">
+                                <button onClick={() => toggleInternalProcedure(proc.id)} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex justify-between items-center">
+                                    <span className="font-semibold text-indigo-800">{proc.procedureCode}. {proc.title}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${activeInternalProcId === proc.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {activeInternalProcId === proc.id && (
+                                    <div className="p-4 bg-white text-sm space-y-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-indigo-50 p-3 rounded-md">
+                                            <div><strong className="block text-indigo-800">Cấp:</strong> {proc.level}</div>
+                                            <div><strong className="block text-indigo-800">Thời gian (ngày thường):</strong> {proc.durationNormal}</div>
+                                            <div><strong className="block text-indigo-800">Thời gian (vùng khó khăn):</strong> {proc.durationDifficult}</div>
+                                            <div><strong className="block text-indigo-800">Thẩm quyền:</strong> {proc.approvingAuthority}</div>
+                                        </div>
+                                        {proc.stages?.map((stage, sIndex) => (
+                                            <div key={sIndex} className="pt-2">
+                                                <h4 className="font-bold text-slate-700">{stage.name}</h4>
+                                                {stage.note && <p className="text-xs italic text-slate-500 mb-2">{stage.note}</p>}
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full divide-y divide-slate-200">
+                                                        <thead className="bg-slate-100">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Bước</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Nội dung</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Đơn vị xử lý</th>
+                                                                <th className="px-3 py-2 text-center text-xs font-medium text-slate-600 uppercase tracking-wider">Thời gian GQ (ngày)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-slate-200">
+                                                            {stage.steps?.map((step, stepIndex) => (
+                                                                <tr key={stepIndex}>
+                                                                    <td className="px-3 py-2 whitespace-nowrap">{step.stepNumber}</td>
+                                                                    <td className="px-3 py-2">{step.task}</td>
+                                                                    <td className="px-3 py-2 text-slate-600">{step.department}</td>
+                                                                    <td className="px-3 py-2 text-center">{step.durationNormal} / <span className="text-slate-500">{step.durationDifficult}</span></td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                {stage.subGroups?.map((subProc, subIndex) => (
+                                                    <div key={subIndex} className="mt-3 pl-4 border-l-2 border-indigo-200">
+                                                        <p className="font-semibold">{subProc.procedureCode}. {subProc.title}</p>
+                                                        <p className="text-xs text-slate-500 mb-2">Thời gian: {subProc.durationNormal} ngày (thường) / {subProc.durationDifficult} ngày (vùng khó khăn)</p>
+                                                        <table className="min-w-full divide-y divide-slate-200">
+                                                            <thead className="bg-slate-100">
+                                                                <tr>
+                                                                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Bước</th>
+                                                                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Nội dung</th>
+                                                                    <th className="px-3 py-2 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Đơn vị xử lý</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-slate-200">
+                                                                {subProc.steps?.map((step, stepIndex) => (
+                                                                    <tr key={stepIndex}>
+                                                                        <td className="px-3 py-2">{step.stepNumber}</td>
+                                                                        <td className="px-3 py-2">{step.task}</td>
+                                                                        <td className="px-3 py-2">{step.department}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        ))}
+                        {filteredInternalProcedures.length === 0 && <p className="text-center text-slate-500 py-8">Không tìm thấy quy trình nội bộ nào.</p>}
                     </div>
-                ))}
-                {filteredProcedures.length === 0 && !procedureError && (
-                    <p className="text-center text-slate-500 py-8">Không tìm thấy thủ tục phù hợp.</p>
-                )}
-                {procedureError && <p className="text-center text-red-500 py-8">{procedureError}</p>}
-            </div>
+                </div>
+            )}
           </div>
        )}
         

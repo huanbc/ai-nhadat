@@ -238,3 +238,34 @@ export interface LandPrice {
 }
 
 export type LookupTab = 'library' | 'procedures' | 'prices' | 'mapLookup' | 'adminUnits' | 'tools';
+
+export interface InternalProcedureStep {
+    stepNumber: string;
+    task: string;
+    department: string;
+    durationNormal: string;
+    durationDifficult: string;
+}
+
+export interface InternalProcedureStage {
+    name: string;
+    durationNormal: string;
+    durationDifficult: string;
+    note?: string;
+    steps?: InternalProcedureStep[];
+    subGroups?: InternalProcedure[]; 
+}
+
+export interface InternalProcedure {
+    id: string;
+    level: 'cấp tỉnh' | 'cấp xã';
+    groupTitle: string;
+    procedureCode: string;
+    title: string;
+    durationNormal: string;
+    durationDifficult: string;
+    coordinatingAgency?: string;
+    approvingAuthority?: string;
+    stages?: InternalProcedureStage[];
+    steps?: InternalProcedureStep[];
+}

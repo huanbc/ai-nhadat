@@ -94,9 +94,6 @@ export const Header: React.FC<HeaderProps> = ({ onGoHome, onSwitchModule }) => {
             <button onClick={onGoHome} className="text-sm font-medium px-3 py-2 text-slate-700 hover:text-blue-600 rounded-md hover:bg-slate-100 transition-colors">
                 Trang chủ
             </button>
-            <button onClick={() => onSwitchModule('lookup')} className="text-sm font-medium px-3 py-2 text-slate-700 hover:text-blue-600 rounded-md hover:bg-slate-100 transition-colors">
-                Tra cứu
-            </button>
             <button 
               onClick={() => setShowIntro(!showIntro)} 
               className="text-sm font-medium px-3 py-2 text-slate-700 hover:text-blue-600 rounded-md hover:bg-slate-100 transition-colors flex items-center gap-1"

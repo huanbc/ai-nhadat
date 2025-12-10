@@ -21,8 +21,7 @@ export const useLandPriceStore = () => {
   const saveToStorage = (prices: LandPrice[]) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(prices));
-    } catch (error)
-{
+    } catch (error) {
       console.error("Failed to save custom land prices to storage:", error);
     }
   };
@@ -49,7 +48,7 @@ export const useLandPriceStore = () => {
         newCustomPrices[existingIndex] = priceToSave;
       } else {
         // Add a new custom price (this happens when editing an *initial* price for the first time)
-        newCustomPrices = [...prevPrices, priceToSave];
+        newCustomPrices = [...prevPrices, { ...priceToSave, id: `custom-${Date.now()}-${Math.random()}` }];
       }
       saveToStorage(newCustomPrices);
       return newCustomPrices;

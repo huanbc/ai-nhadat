@@ -18,7 +18,7 @@ import { HomePage } from './components/HomePage';
 const SAVE_KEY = 'documentDraftProgress';
 
 type ViewMode = 'creating' | 'managing';
-type ManagerTab = 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits' | 'mapLookup';
+type ManagerTab = 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup';
 
 const generateUploadSequence = (template: DocumentTemplate): string[] => {
     const sequence: string[] = [];
@@ -38,7 +38,7 @@ const App: React.FC = () => {
   const [appStarted, setAppStarted] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<Step>(Step.SELECT_TEMPLATE);
   const [viewMode, setViewMode] = useState<ViewMode>('creating');
-  const [managerTab, setManagerTab] = useState<ManagerTab>('analysis');
+  const [managerTab, setManagerTab] = useState<ManagerTab>('procedures');
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
   const [selectedSubTemplateKey, setSelectedSubTemplateKey] = useState<SubTemplateKey | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles>({});
@@ -403,7 +403,7 @@ const App: React.FC = () => {
   const renderCreationSteps = () => {
     switch (currentStep) {
       case Step.SELECT_TEMPLATE:
-        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} />;
+        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} onNavigateToManager={handleNavigateToManager} />;
       case Step.SELECT_SUB_TEMPLATE:
         return (
             <SubTemplateSelector 
@@ -461,7 +461,7 @@ const App: React.FC = () => {
             />
         );
       default:
-        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} />;
+        return <TemplateSelector onSelect={handleTemplateSelect} onGoHome={handleStartNew} onNavigateToManager={handleNavigateToManager} />;
     }
   };
   

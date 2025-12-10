@@ -1,39 +1,28 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
-import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
-import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument } from '../types';
-import { analyzeAndSummarizeDocument, extractPriceDataFromDocument } from '../services/geminiService';
+import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, MapRecord } from '../types';
+import { extractPriceDataFromDocument } from '../services/geminiService';
 import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
 import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
+import { PROCEDURES_DATA } from '../data/proceduresData';
+import { LAND_PRICES_DATA } from '../data/landPricesData';
+import { MAP_DATA } from '../data/mapData';
 
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits' | 'mapLookup';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'analysis' | 'officialDocs' | 'adminUnits' | 'mapLookup') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup') => void;
   onBack?: () => void;
 }
 
 type AuthorityLevel = 'all' | 'cấp tỉnh' | 'cấp xã';
 
-interface MapRecord {
-    id: string;
-    newUnit: string;
-    oldUnit: string;
-    oldSheet: string;
-    newSheet: string;
-    scale: string;
-    notes?: string;
-}
-
 export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHome, activeTab, onTabChange, onBack }) => {
   const { documents, deleteDocument } = useDocumentStore();
-  const { analyzedDocuments, addAnalyzedDocument, deleteAnalyzedDocument } = useAnalyzedDocumentStore();
   const { customLandPrices, addCustomLandPrices, upsertCustomLandPrice } = useLandPriceStore();
   const { officialDocuments, deleteOfficialDocument } = useOfficialDocumentStore();
 
@@ -44,11 +33,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [mapSheetNumberSearch, setMapSheetNumberSearch] = useState('');
 
   // State for Land Price Lookup
-  const [allLandPrices, setAllLandPrices] = useState<LandPrice[]>([]);
   const [landPriceSearchQuery, setLandPriceSearchQuery] = useState('');
   const [landPriceSearchResults, setLandPriceSearchResults] = useState<LandPrice[]>([]);
-  const [isLandPriceSearching, setIsLandPriceSearching] = useState(false);
-  const [landPriceSearchError, setLandPriceSearchError] = useState('');
   const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
   const [priceUpdateError, setPriceUpdateError] = useState('');
   const [previewPrices, setPreviewPrices] = useState<LandPrice[] | null>(null);
@@ -64,23 +50,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
 
 
   // State for Procedure Lookup
-  const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [procedureSearchQuery, setProcedureSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [activeProcedureId, setActiveProcedureId] = useState<string | null>(null);
-  const [procedureError, setProcedureError] = useState('');
   const [selectedAuthority, setSelectedAuthority] = useState<AuthorityLevel>('all');
 
-  // State for Document Analysis
-  const [documentToAnalyze, setDocumentToAnalyze] = useState<UploadedFile | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState('');
-  const [analysisError, setAnalysisError] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-
   // State for Analyzed Document Library
-  const [activeAnalyzedDocId, setActiveAnalyzedDocId] = useState<string | null>(null);
   const [viewingOfficialDoc, setViewingOfficialDoc] = useState<StoredOfficialDocument | null>(null);
 
   // State for Admin Unit Lookup
@@ -91,10 +66,24 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   
   // State for Map Lookup
   const [mapSearchQuery, setMapSearchQuery] = useState('');
-  const [mapData, setMapData] = useState<MapRecord[]>([]);
   const [mapSearchResults, setMapSearchResults] = useState<MapRecord[]>([]);
   const [selectedMapNewUnit, setSelectedMapNewUnit] = useState<string>('');
   const [selectedMapOldUnit, setSelectedMapOldUnit] = useState<string>('');
+
+  // --- DATA LOADING & PREPARATION ---
+  const procedures = PROCEDURES_DATA;
+  const mapData = MAP_DATA;
+
+  const allLandPrices = useMemo(() => {
+    const initialPrices: LandPrice[] = LAND_PRICES_DATA.map((price, index) => ({
+        ...price,
+        id: `initial-${index}`
+    }));
+    const priceMap = new Map<string, LandPrice>();
+    initialPrices.forEach(p => priceMap.set(p.id!, p));
+    customLandPrices.forEach(p => priceMap.set(p.id!, p));
+    return Array.from(priceMap.values());
+  }, [customLandPrices]);
 
   const adminUnitSearchData = useMemo(() => {
     const data: { oldName: string; newName: string }[] = [];
@@ -105,6 +94,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
     return data;
   }, []);
+
+  // Initialize search results on first render
+  useEffect(() => {
+    setLandPriceSearchResults(allLandPrices);
+    setMapSearchResults(mapData);
+  }, [allLandPrices, mapData]);
   
   // Derive unique lists for filters (Admin Units) - Cascading Logic
   const uniqueAdminNewUnits = useMemo(() => {
@@ -151,49 +146,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
   }, [adminUnitSearch, activeTab, adminUnitSearchData, selectedAdminNewUnit, selectedAdminOldUnit]);
 
-
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const procResponse = await fetch('/data/procedures.json');
-        if (!procResponse.ok) throw new Error(`Không thể tải file thủ tục.`);
-        const procData = await procResponse.json();
-        setProcedures(procData);
-
-        const priceResponse = await fetch('/data/landPrices.json');
-        if (!priceResponse.ok) throw new Error(`Không thể tải file giá đất.`);
-        const initialPricesRaw = await priceResponse.json();
-        
-        const initialPrices: LandPrice[] = initialPricesRaw.map((price: Omit<LandPrice, 'id'>, index: number) => ({
-            ...price,
-            id: `initial-${index}`
-        }));
-        
-        // Merge initial and custom prices
-        const priceMap = new Map<string, LandPrice>();
-        initialPrices.forEach(p => priceMap.set(p.id!, p));
-        customLandPrices.forEach(p => priceMap.set(p.id!, p)); // Custom prices will overwrite initial ones if IDs match
-
-        setAllLandPrices(Array.from(priceMap.values()));
-        setLandPriceSearchResults(Array.from(priceMap.values())); // Init search results
-        
-        // Load map data
-        const mapResponse = await fetch('/data/mapData.json');
-        if (mapResponse.ok) {
-            const mapJson = await mapResponse.json();
-            setMapData(mapJson);
-            setMapSearchResults(mapJson); // Initialize with full data
-        }
-
-      } catch (error) {
-        console.error("Lỗi tải dữ liệu:", error);
-        const errorMessage = error instanceof Error ? error.message : "Lỗi không xác định.";
-        setProcedureError(errorMessage);
-        setLandPriceSearchError(errorMessage);
-      }
-    };
-    fetchInitialData();
-  }, [customLandPrices]);
   
   // Derive unique lists for filters (Map Data) - Cascading Logic
   const uniqueNewUnits = useMemo(() => {
@@ -381,12 +333,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
   };
   
-  const handleDeleteAnalyzedDocument = (id: string, fileName: string) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa bản phân tích của tệp "${fileName}" không? Thao tác này không thể hoàn tác.`)) {
-      deleteAnalyzedDocument(id);
-    }
-  };
-
   const handleDeleteOfficialDocument = (id: string, title: string) => {
     if (window.confirm(`Bạn có chắc chắn muốn xóa văn bản trình ký "${title}" không?`)) {
       deleteOfficialDocument(id);
@@ -418,10 +364,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     setActiveProcedureId(prevId => prevId === id ? null : id);
   };
   
-  const toggleAnalyzedDoc = (id: string) => {
-    setActiveAnalyzedDocId(prevId => (prevId === id ? null : id));
-  };
-
   const handleFileForPriceUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -467,55 +409,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     }
     setIsPricePreviewOpen(false);
     setPreviewPrices(null);
-  };
-
-
-  const handleFileForAnalysisChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = (event.target?.result as string).split(',')[1];
-        setDocumentToAnalyze({
-          name: file.name,
-          base64,
-          mimeType: file.type,
-        });
-        setAnalysisResult('');
-        setAnalysisError('');
-        setSaveSuccess(false);
-      };
-      reader.readAsDataURL(file);
-    } else {
-        setDocumentToAnalyze(null);
-    }
-    if (!e.target.value) {
-        setDocumentToAnalyze(null);
-    }
-  };
-
-  const handleAnalyzeDocument = async () => {
-    if (!documentToAnalyze) return;
-    setIsAnalyzing(true);
-    setAnalysisResult('');
-    setAnalysisError('');
-    setSaveSuccess(false);
-    try {
-      const summary = await analyzeAndSummarizeDocument(documentToAnalyze);
-      setAnalysisResult(summary);
-    } catch (err) {
-      setAnalysisError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-   const handleSaveAnalysis = () => {
-    if (analysisResult && documentToAnalyze) {
-      addAnalyzedDocument(documentToAnalyze.name, analysisResult);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }
   };
   
   const AuthorityButton: React.FC<{ level: AuthorityLevel, label: string }> = ({ level, label }) => {
@@ -746,7 +639,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
 
        <div className="border-b border-slate-200 overflow-x-auto">
           <nav className="-mb-px flex space-x-4 min-w-max" aria-label="Tabs">
-            <TabButton tabId="analysis" label="Phân tích & Thư viện" />
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
             <TabButton tabId="mapLookup" label="Tra cứu Bản đồ 2 cấp" />
             <TabButton tabId="adminUnits" label="ĐV Hành chính" />
@@ -755,110 +647,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             <TabButton tabId="prices" label="Giá đất" />
           </nav>
        </div>
-      
-       {activeTab === 'analysis' && (
-        <>
-        {/* Document Analysis */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-900 mb-4">Phân tích và Tóm tắt Văn bản</h3>
-          <p className="text-slate-600 text-sm mb-4">Tải lên một văn bản pháp lý (hợp đồng, quyết định,...) dưới dạng ảnh hoặc PDF để AI phân tích, tóm tắt nội dung và lưu vào thư viện.</p>
-          <div className="flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-grow">
-                    <label htmlFor="document-analyzer-input" className="sr-only">Chọn văn bản</label>
-                    <input
-                        id="document-analyzer-input"
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp, application/pdf"
-                        onChange={handleFileForAnalysisChange}
-                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                </div>
-                <button
-                    onClick={handleAnalyzeDocument}
-                    disabled={!documentToAnalyze || isAnalyzing}
-                    className="inline-flex justify-center items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    {isAnalyzing ? 'Đang phân tích...' : 'Phân tích'}
-                </button>
-            </div>
-            {documentToAnalyze && !isAnalyzing && (
-              <div className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center">
-                <span>Tệp đã chọn: {documentToAnalyze.name}</span>
-                <button
-                  onClick={() => {
-                    setDocumentToAnalyze(null);
-                    const input = document.getElementById('document-analyzer-input') as HTMLInputElement;
-                    if (input) input.value = '';
-                  }}
-                  className="p-1 rounded-full text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  aria-label="Xóa tệp đã chọn"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
-              {isAnalyzing && <p className="p-4 text-slate-500 animate-pulse">AI đang đọc và phân tích văn bản...</p>}
-              {analysisError && <p className="p-4 text-red-600">{analysisError}</p>}
-              {analysisResult && (
-                <div className="p-4 prose prose-sm max-w-none">
-                  <pre className="whitespace-pre-wrap text-slate-800 bg-transparent p-0 font-sans">{analysisResult}</pre>
-                </div>
-              )}
-              {!isAnalyzing && !analysisResult && !analysisError && <p className="p-4 text-slate-400 text-center mt-4">Kết quả phân tích sẽ hiển thị ở đây.</p>}
-            </div>
-             {analysisResult && !isAnalyzing && (
-                <div className="flex justify-center">
-                    <button onClick={handleSaveAnalysis} className="px-5 py-2 text-sm font-medium text-green-800 bg-green-100 rounded-md hover:bg-green-200 transition-colors">
-                        Lưu kết quả này vào thư viện
-                    </button>
-                </div>
-             )}
-              {saveSuccess && <p className="text-sm text-green-600 text-center -mt-2">Đã lưu thành công!</p>}
-          </div>
-        </div>
-        
-        {/* Analyzed Document Library */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-900 mb-4">Thư viện Văn bản đã Phân tích</h3>
-          {analyzedDocuments.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-              {analyzedDocuments.map(doc => (
-                <div key={doc.id} className="border border-slate-200 rounded-md">
-                  <div className="w-full text-left p-4 bg-slate-50 flex justify-between items-center gap-2">
-                    <div className="flex-grow">
-                      <p className="font-semibold text-slate-800">{doc.fileName}</p>
-                      <p className="text-xs text-slate-500">Lưu lúc: {new Date(doc.createdAt).toLocaleString('vi-VN')}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => toggleAnalyzedDoc(doc.id)} className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">
-                        {activeAnalyzedDocId === doc.id ? 'Ẩn' : 'Xem'}
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteAnalyzedDocument(doc.id, doc.fileName)} 
-                        className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  </div>
-                  {activeAnalyzedDocId === doc.id && (
-                    <div className="p-4 bg-white prose prose-sm max-w-none">
-                      <pre className="whitespace-pre-wrap text-slate-800 bg-transparent p-0 font-sans">{doc.analysisContent}</pre>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-slate-500 py-8">Thư viện trống. Các kết quả phân tích bạn lưu lại sẽ xuất hiện ở đây.</p>
-          )}
-        </div>
-        </>
-       )}
       
        {activeTab === 'procedures' && (
           <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
@@ -916,10 +704,9 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                         )}
                     </div>
                 ))}
-                {filteredProcedures.length === 0 && !procedureError && (
+                {filteredProcedures.length === 0 && (
                     <p className="text-center text-slate-500 py-8">Không tìm thấy thủ tục phù hợp.</p>
                 )}
-                {procedureError && <p className="text-center text-red-500 py-8">{procedureError}</p>}
             </div>
           </div>
        )}
@@ -1335,9 +1122,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                     {priceUpdateError && <p className="text-sm text-red-600">{priceUpdateError}</p>}
               </div>
                 <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
-                  {landPriceSearchError ? (
-                    <p className="p-3 text-red-600">{landPriceSearchError}</p>
-                  ) : landPriceSearchResults.length > 0 ? (
+                  {landPriceSearchResults.length > 0 ? (
                     <table className="w-full text-sm text-left text-slate-800">
                       <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
                         <tr>

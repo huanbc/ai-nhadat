@@ -4,14 +4,17 @@ import { DOCUMENT_TEMPLATES } from '../constants';
 import { DocumentTemplate, DocumentTemplateKey, UploadedFile, Procedure, LandPrice } from '../types';
 import { useAnalyzedDocumentStore } from '../hooks/useAnalyzedDocumentStore';
 import { useLegalDocumentStore } from '../hooks/useLegalDocumentStore';
-import { checkAndAnalyzeDocuments, quickExtractPersonalInfo, consultWithAI } from '../services/geminiService';
+import { checkAndAnalyzeDocuments, quickExtractPersonalInfo, consultWithAI, analyzeAndSummarizeDocument } from '../services/geminiService';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { DirectiveResponseGenerator } from './DirectiveResponseGenerator';
+import { PROCEDURES_DATA } from '../data/proceduresData';
+import { LAND_PRICES_DATA } from '../data/landPricesData';
 
 
 interface TemplateSelectorProps {
   onSelect: (template: DocumentTemplate) => void;
   onGoHome?: () => void;
+  onNavigateToManager: () => void;
 }
 
 // Simple hash function for content checking
@@ -26,9 +29,9 @@ const stringToHash = (str: string): string => {
 };
 
 
-export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, onGoHome }) => {
+export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, onGoHome, onNavigateToManager }) => {
   const [mode, setMode] = useState<'select' | 'consult' | 'draft'>('select');
-  const [consultationTab, setConsultationTab] = useState<'q&a' | 'check' | 'response'>('q&a');
+  const [consultationTab, setConsultationTab] = useState<'q&a' | 'check' | 'response' | 'library'>('q&a');
 
   // State for AI Q&A
   const [prompt, setPrompt] = useState('');
@@ -39,15 +42,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
   const [consultationFile, setConsultationFile] = useState<UploadedFile | null>(null);
   const [savableResponse, setSavableResponse] = useState<{ fileName: string; content: string } | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const { addAnalyzedDocument } = useAnalyzedDocumentStore();
-
+  
   // State for Document Check
   const [checkFiles, setCheckFiles] = useState<UploadedFile[]>([]);
   const [legalDocs, setLegalDocs] = useState<UploadedFile[]>([]); // Newly uploaded legal docs for this session
   const [isChecking, setIsChecking] = useState(false);
   const [checkResponse, setCheckResponse] = useState('');
   const [checkError, setCheckError] = useState('');
-  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const procedures = PROCEDURES_DATA;
   const [selectedProcedureId, setSelectedProcedureId] = useState<string>('');
   const [shouldCheckLandPrice, setShouldCheckLandPrice] = useState(false);
   const [taxComparisonSource, setTaxComparisonSource] = useState<'public' | 'internal'>('public');
@@ -60,8 +62,18 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
   const [uploadMessage, setUploadMessage] = useState('');
   
   // State for Land Prices (for internal check)
-  const { customLandPrices, addCustomLandPrices } = useLandPriceStore();
-  const [initialLandPrices, setInitialLandPrices] = useState<LandPrice[]>([]);
+  const { customLandPrices } = useLandPriceStore();
+  const initialLandPrices: LandPrice[] = useMemo(() => LAND_PRICES_DATA.map((p, i) => ({ ...p, id: `initial-${i}`})), []);
+
+  // State for Document Analysis (from DocumentManager)
+  const [documentToAnalyze, setDocumentToAnalyze] = useState<UploadedFile | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
+  
+  // State for Analyzed Document Library (from DocumentManager)
+  const { analyzedDocuments, addAnalyzedDocument, deleteAnalyzedDocument } = useAnalyzedDocumentStore();
+  const [activeAnalyzedDocId, setActiveAnalyzedDocId] = useState<string | null>(null);
 
 
   // State for Document Drafting
@@ -80,40 +92,6 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     return DOCUMENT_TEMPLATES.find(t => t.key === selectedTemplateKey) || null;
   }, [selectedTemplateKey]);
 
-  useEffect(() => {
-    // Fetch procedures when component mounts and check tab is active
-    const fetchProcedures = async () => {
-        try {
-            const response = await fetch('/data/procedures.json');
-            if (!response.ok) {
-                throw new Error('Failed to load procedures');
-            }
-            const data = await response.json();
-            setProcedures(data);
-        } catch (error) {
-            console.error(error);
-            setCheckError('Không thể tải danh sách thủ tục hành chính.');
-        }
-    };
-     const fetchPrices = async () => {
-        try {
-            const response = await fetch('/data/landPrices.json');
-            if (!response.ok) throw new Error('Failed to load prices');
-            const data = await response.json();
-            const formattedInitial = data.map((p: any, i: number) => ({ ...p, id: `initial-${i}`}));
-            setInitialLandPrices(formattedInitial);
-        } catch (error) {
-            console.error("Failed to load initial land prices", error);
-             setCheckError(prev => prev + ' Không thể tải dữ liệu giá đất.');
-        }
-    };
-
-    if (mode === 'consult' && consultationTab === 'check') {
-        fetchProcedures();
-        fetchPrices();
-    }
-  }, [mode, consultationTab]);
-  
   const allLandPrices = useMemo(() => {
     const priceMap = new Map<string, LandPrice>();
     initialLandPrices.forEach(p => p.id && priceMap.set(p.id, p));
@@ -287,6 +265,66 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
     }
   };
 
+    // Handlers from DocumentManager
+  const handleFileForAnalysisChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string).split(',')[1];
+        setDocumentToAnalyze({
+          name: file.name,
+          base64,
+          mimeType: file.type,
+        });
+        setAnalysisResult('');
+        setAnalysisError('');
+        setSaveSuccess(false);
+      };
+      reader.readAsDataURL(file);
+    } else {
+        setDocumentToAnalyze(null);
+    }
+    if (!e.target.value) {
+        setDocumentToAnalyze(null);
+    }
+  };
+
+  const handleAnalyzeDocument = async () => {
+    if (!documentToAnalyze) return;
+    setIsAnalyzing(true);
+    setAnalysisResult('');
+    setAnalysisError('');
+    setSaveSuccess(false);
+    try {
+      const summary = await analyzeAndSummarizeDocument(documentToAnalyze);
+      setAnalysisResult(summary);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+   const handleSaveAnalysis = () => {
+    if (analysisResult && documentToAnalyze) {
+      addAnalyzedDocument(documentToAnalyze.name, analysisResult);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
+  
+  const toggleAnalyzedDoc = (id: string) => {
+    setActiveAnalyzedDocId(prevId => (prevId === id ? null : id));
+  };
+  
+  const handleDeleteAnalyzedDocument = (id: string, fileName: string) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa bản phân tích của tệp "${fileName}" không? Thao tác này không thể hoàn tác.`)) {
+      deleteAnalyzedDocument(id);
+    }
+  };
+
+
   const handleStartDrafting = () => {
     if (selectedTemplate) {
       onSelect(selectedTemplate);
@@ -332,14 +370,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
   };
 
   const renderSelection = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <div onClick={() => setMode('consult')} className="group cursor-pointer bg-white p-6 rounded-lg shadow-md border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all transform hover:-translate-y-1 flex flex-col items-center text-center">
         <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-50 text-blue-600 mb-4 group-hover:bg-blue-100 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
             </svg>
         </div>
-        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">Tham vấn & Phân tích AI</h3>
+        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">Tham vấn AI</h3>
         <p className="mt-2 text-sm text-slate-600">Hỏi đáp pháp lý, kiểm tra đối chiếu và phân tích bộ hồ sơ nhà đất của bạn theo Luật Đất đai 2024.</p>
       </div>
 
@@ -349,14 +387,24 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
         </div>
-        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">Soạn thảo Văn bản Tự động</h3>
+        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">AI Hỗ trợ Soạn thảo</h3>
         <p className="mt-2 text-sm text-slate-600">Chọn loại văn bản, tải lên giấy tờ, và để AI tự động điền thông tin vào mẫu cho bạn.</p>
+      </div>
+
+       <div onClick={onNavigateToManager} className="group cursor-pointer bg-white p-6 rounded-lg shadow-md border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all transform hover:-translate-y-1 flex flex-col items-center text-center">
+         <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-50 text-blue-600 mb-4 group-hover:bg-blue-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+        </div>
+        <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">Tra cứu AI</h3>
+        <p className="mt-2 text-sm text-slate-600">Tra cứu thủ tục hành chính, giá đất, thông tin quy hoạch, và quản lý các văn bản đã soạn thảo.</p>
       </div>
     </div>
   );
 
   const renderConsultation = () => {
-    const TabButton: React.FC<{ tabId: 'q&a' | 'check' | 'response', label: string }> = ({ tabId, label }) => (
+    const TabButton: React.FC<{ tabId: 'q&a' | 'check' | 'response' | 'library', label: string }> = ({ tabId, label }) => (
         <button
            onClick={() => setConsultationTab(tabId)}
            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 ${
@@ -383,6 +431,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                 <nav className="-mb-px flex space-x-4" aria-label="Tabs">
                     <TabButton tabId="q&a" label="Hỏi đáp Nhanh" />
                     <TabButton tabId="check" label="Kiểm tra Hồ sơ" />
+                    <TabButton tabId="library" label="Phân tích Văn bản" />
                     <TabButton tabId="response" label="Phản hồi Văn bản Chỉ đạo" />
                 </nav>
             </div>
@@ -623,6 +672,109 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                     </button>
                 </div>
             )}
+            {consultationTab === 'library' && (
+                <div className="pt-6 flex-grow flex flex-col space-y-8">
+                    {/* Document Analysis */}
+                    <div className="bg-white p-6 rounded-lg shadow-inner border border-slate-200">
+                        <h3 className="text-xl font-semibold text-slate-900 mb-4">Phân tích Văn bản</h3>
+                        <p className="text-slate-600 text-sm mb-4">Tải lên một văn bản pháp lý (hợp đồng, quyết định,...) dưới dạng ảnh hoặc PDF để AI phân tích, tóm tắt nội dung và lưu vào thư viện.</p>
+                        <div className="flex flex-col space-y-4">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="flex-grow">
+                                    <label htmlFor="document-analyzer-input" className="sr-only">Chọn văn bản</label>
+                                    <input
+                                        id="document-analyzer-input"
+                                        type="file"
+                                        accept="image/png, image/jpeg, image/webp, application/pdf"
+                                        onChange={handleFileForAnalysisChange}
+                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleAnalyzeDocument}
+                                    disabled={!documentToAnalyze || isAnalyzing}
+                                    className="inline-flex justify-center items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    {isAnalyzing ? 'Đang phân tích...' : 'Phân tích'}
+                                </button>
+                            </div>
+                            {documentToAnalyze && !isAnalyzing && (
+                            <div className="text-sm text-green-700 font-medium bg-green-50 p-2 rounded-md flex justify-between items-center">
+                                <span>Tệp đã chọn: {documentToAnalyze.name}</span>
+                                <button
+                                onClick={() => {
+                                    setDocumentToAnalyze(null);
+                                    const input = document.getElementById('document-analyzer-input') as HTMLInputElement;
+                                    if (input) input.value = '';
+                                }}
+                                className="p-1 rounded-full text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                aria-label="Xóa tệp đã chọn"
+                                >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                </button>
+                            </div>
+                            )}
+                            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
+                            {isAnalyzing && <p className="p-4 text-slate-500 animate-pulse">AI đang đọc và phân tích văn bản...</p>}
+                            {analysisError && <p className="p-4 text-red-600">{analysisError}</p>}
+                            {analysisResult && (
+                                <div className="p-4 prose prose-sm max-w-none">
+                                <pre className="whitespace-pre-wrap text-slate-800 bg-transparent p-0 font-sans">{analysisResult}</pre>
+                                </div>
+                            )}
+                            {!isAnalyzing && !analysisResult && !analysisError && <p className="p-4 text-slate-400 text-center mt-4">Kết quả phân tích sẽ hiển thị ở đây.</p>}
+                            </div>
+                            {analysisResult && !isAnalyzing && (
+                                <div className="flex justify-center">
+                                    <button onClick={handleSaveAnalysis} className="px-5 py-2 text-sm font-medium text-green-800 bg-green-100 rounded-md hover:bg-green-200 transition-colors">
+                                        Lưu kết quả này vào thư viện
+                                    </button>
+                                </div>
+                            )}
+                            {saveSuccess && <p className="text-sm text-green-600 text-center -mt-2">Đã lưu thành công!</p>}
+                        </div>
+                    </div>
+
+                    {/* Analyzed Document Library */}
+                    <div className="bg-white p-6 rounded-lg shadow-inner border border-slate-200">
+                        <h3 className="text-xl font-semibold text-slate-900 mb-4">Thư viện Văn bản đã Phân tích</h3>
+                        {analyzedDocuments.length > 0 ? (
+                            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                            {analyzedDocuments.map(doc => (
+                                <div key={doc.id} className="border border-slate-200 rounded-md">
+                                <div className="w-full text-left p-4 bg-slate-50 flex justify-between items-center gap-2">
+                                    <div className="flex-grow">
+                                    <p className="font-semibold text-slate-800">{doc.fileName}</p>
+                                    <p className="text-xs text-slate-500">Lưu lúc: {new Date(doc.createdAt).toLocaleString('vi-VN')}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button onClick={() => toggleAnalyzedDoc(doc.id)} className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">
+                                        {activeAnalyzedDocId === doc.id ? 'Ẩn' : 'Xem'}
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeleteAnalyzedDocument(doc.id, doc.fileName)} 
+                                        className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
+                                    >
+                                        Xóa
+                                    </button>
+                                    </div>
+                                </div>
+                                {activeAnalyzedDocId === doc.id && (
+                                    <div className="p-4 bg-white prose prose-sm max-w-none">
+                                    <pre className="whitespace-pre-wrap text-slate-800 bg-transparent p-0 font-sans">{doc.analysisContent}</pre>
+                                    </div>
+                                )}
+                                </div>
+                            ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-slate-500 py-8">Thư viện trống. Các kết quả phân tích bạn lưu lại sẽ xuất hiện ở đây.</p>
+                        )}
+                    </div>
+                </div>
+            )}
             {consultationTab === 'response' && (
                 <div className="pt-6">
                     <DirectiveResponseGenerator onBack={() => setConsultationTab('q&a')} onGoHome={onGoHome} />
@@ -733,7 +885,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
           AI Trợ lý Nhà đất
         </h2>
         <p className="mt-4 text-lg text-slate-600">
-          Tham vấn, tra cứu và tự động tạo hợp đồng, văn bản nhà đất chỉ trong vài phút.
+          Chọn một module để bắt đầu.
         </p>
          <p className="mt-1 text-sm text-slate-500">
           Tác giả: Lê Minh Huấn - 0912041201

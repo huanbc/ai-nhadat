@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse, Type, Part } from "@google/genai";
 import { DocumentTemplateKey, UploadedFiles, ExtractedData, UploadedFile, LandPrice, PartyData, LandData, Procedure } from "../types";
 
@@ -572,7 +571,7 @@ Dựa vào những phân tích và đề xuất trên, hãy viết lại TOÀN B
 
     try {
         const response = await callGeminiWithRetry(() => ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             contents: { parts: [{ text: prompt }] },
         }));
 
@@ -700,7 +699,7 @@ export const generateDirectiveResponse = async (
 
     try {
         const response = await callGeminiWithRetry(() => ai.models.generateContent({
-            model: 'gemini-2.5-pro', // Use a more powerful model for this complex task
+            model: 'gemini-3-pro-preview', // Use a more powerful model for this complex task
             contents: { parts: parts },
         }));
 

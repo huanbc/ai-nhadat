@@ -237,3 +237,13 @@ export interface LandPrice {
   vhmFactor?: number;
   notes?: string;
 }
+
+export interface MapRecord {
+    id: string;
+    newUnit: string;
+    oldUnit: string;
+    oldSheet: string;
+    newSheet: string;
+    scale: string;
+    notes?: string;
+}

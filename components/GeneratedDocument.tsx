@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { DocumentTemplate, ExtractedData } from '../types';
 import { getDocumentContent } from '../utils/documentGenerator';
@@ -212,20 +210,18 @@ export const GeneratedDocument: React.FC<GeneratedDocumentProps> = ({ template, 
             </div>
              
             <div className="mt-8 pt-6 text-center space-x-4">
+                 <button
+                    onClick={onBackToManager} // Use this prop which is now onGoHome from App.tsx
+                    className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-slate-300 text-base font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400"
+                >
+                    Về Trang chủ
+                </button>
                 <button
                     onClick={onRestart}
-                    className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
+                    className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                    Soạn thảo Văn bản Mới
+                   Soạn thảo Văn bản Mới
                 </button>
-                 {isEditing && (
-                    <button
-                        onClick={onBackToManager}
-                        className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                       Quay lại Danh sách
-                    </button>
-                )}
             </div>
         </div>
     );

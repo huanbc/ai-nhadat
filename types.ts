@@ -1,4 +1,3 @@
-
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -237,3 +236,5 @@ export interface LandPrice {
   vhmFactor?: number;
   notes?: string;
 }
+
+export type LookupTab = 'library' | 'procedures' | 'prices' | 'mapLookup' | 'adminUnits' | 'tools';

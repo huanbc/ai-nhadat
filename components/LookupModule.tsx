@@ -12,6 +12,7 @@ type LookupTab = 'library' | 'procedures' | 'prices' | 'mapLookup' | 'adminUnits
 interface LookupModuleProps {
   onEdit: (doc: StoredDocument) => void;
   onStartDrafting: () => void;
+  onGoHome: () => void;
 }
 
 type AuthorityLevel = 'all' | 'cấp tỉnh' | 'cấp xã';
@@ -27,7 +28,7 @@ interface MapRecord {
     notes?: string;
 }
 
-export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDrafting }) => {
+export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDrafting, onGoHome }) => {
   const [activeTab, setActiveTab] = useState<LookupTab>('procedures');
   const [librarySubTab, setLibrarySubTab] = useState<LibrarySubTab>('drafted');
   
@@ -725,12 +726,23 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
             Phân tích, tra cứu thủ tục, quản lý văn bản, giá đất và các mẫu soạn thảo.
           </p>
         </div>
-        <button
-          onClick={onStartDrafting}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          + Soạn thảo mới
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onGoHome}
+            className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            Menu
+          </button>
+          <button
+            onClick={onStartDrafting}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            + Soạn thảo mới
+          </button>
+        </div>
       </div>
 
        <div className="border-b border-slate-200 overflow-x-auto">

@@ -231,7 +231,7 @@ const App: React.FC = () => {
       case 'consultation':
         return <ConsultationModule onGoHome={handleGoHome} />;
       case 'lookup':
-        return <LookupModule onEdit={handleEditDocument} onStartDrafting={handleStartNewDraft} />;
+        return <LookupModule onEdit={handleEditDocument} onStartDrafting={handleStartNewDraft} onGoHome={handleGoHome} />;
       case 'home':
       default:
         return <HomePage onSelectModule={setActiveModule} />;

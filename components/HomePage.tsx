@@ -1,74 +1,72 @@
-import React from 'react';
-import { ActiveModule } from '../App';
+
+import React, { useRef } from 'react';
+import { restoreBackup } from '../utils/backupUtils';
 
 interface HomePageProps {
-  onSelectModule: (module: ActiveModule) => void;
-  showResumePrompt?: React.ReactNode;
+  onStart: () => void;
 }
 
-const modules = [
-    {
-        id: 'consultation' as ActiveModule,
-        title: 'Tham vấn & Phân tích AI',
-        description: 'Hỏi đáp pháp lý, thẩm định hồ sơ, soạn công văn theo Luật Đất đai 2024.',
-        icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-            </svg>
-        ),
-    },
-    {
-        id: 'drafting' as ActiveModule,
-        title: 'Soạn thảo Văn bản Tự động',
-        description: 'Chọn loại văn bản, tải lên giấy tờ, và để AI tự động điền thông tin vào mẫu cho bạn.',
-        icon: (
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-            </svg>
-        )
-    },
-    {
-        id: 'lookup' as ActiveModule,
-        title: 'Tra cứu & Quản lý Thông tin',
-        description: 'Tra cứu giá đất, thủ tục hành chính, bản đồ, và quản lý các tài liệu đã lưu.',
-        icon: (
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-             </svg>
-        )
-    }
-]
+export const HomePage: React.FC<HomePageProps> = ({ onStart }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-export const HomePage: React.FC<HomePageProps> = ({ onSelectModule, showResumePrompt }) => {
+  const handleRestoreClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+          if(confirm("Bạn có chắc chắn muốn khôi phục dữ liệu từ file này? Dữ liệu hiện tại sẽ bị ghi đè.")) {
+              restoreBackup(file, () => {
+                  // On success, page reloads automatically in utils
+              });
+          }
+          event.target.value = '';
+      }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {showResumePrompt}
-      <div className="text-center mb-10">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          AI Trợ lý Nhà đất
-        </h2>
-        <p className="mt-4 text-lg text-slate-600">
-          Chọn một chức năng để bắt đầu.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {modules.map(module => (
-            <div 
-                key={module.id} 
-                onClick={() => onSelectModule(module.id)} 
-                className="group cursor-pointer bg-white p-6 rounded-lg shadow-md border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all transform hover:-translate-y-1 flex flex-col items-center text-center"
-            >
-                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-50 text-blue-600 mb-4 group-hover:bg-blue-100 transition-colors">
-                    {module.icon}
+    <div className="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+        <main className="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+            <div className="text-center max-w-4xl mx-auto">
+                <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
+                    AI Trợ lý Nhà đất
+                </h1>
+                <p className="mt-6 text-lg leading-8 text-slate-600">
+                    Ứng dụng giúp soạn thảo văn bản và hợp đồng nhà đất một cách nhanh chóng. Tự động trích xuất thông tin từ các tài liệu như CCCD, Giấy chứng nhận quyền sử dụng đất và điền vào mẫu có sẵn, sau đó cho phép người dùng xem lại, chỉnh sửa và sao chép nội dung hoàn chỉnh.
+                </p>
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button
+                        onClick={onStart}
+                        className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-md shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105"
+                    >
+                        Truy cập Ứng dụng
+                    </button>
+                    
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        className="hidden" 
+                        accept=".json" 
+                    />
+                    
+                    <button
+                        onClick={handleRestoreClick}
+                        className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-slate-700 bg-white border border-slate-300 rounded-md shadow-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-transform transform hover:scale-105 flex items-center justify-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                        </svg>
+                        Khôi phục Dữ liệu
+                    </button>
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 group-hover:text-blue-800">{module.title}</h3>
-                <p className="mt-2 text-sm text-slate-600 flex-grow">{module.description}</p>
-                 <span className="mt-4 text-sm font-semibold text-blue-600 group-hover:text-blue-800">Bắt đầu &rarr;</span>
             </div>
-        ))}
-      </div>
+        </main>
+        <footer className="text-center py-4 text-slate-500 text-sm">
+            <p>Lưu ý: Luôn kiểm tra kỹ thông tin do AI trích xuất. Ứng dụng này chỉ mang tính chất tham khảo.</p>
+            <p>&copy; 2024. Phát triển bởi Lê Minh Huấn - 0912041201. Powered by Gemini.</p>
+        </footer>
     </div>
   );
 };

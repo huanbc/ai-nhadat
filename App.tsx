@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { DocumentTemplate, ExtractedData, UploadedFiles, Step, StoredDocument, SubTemplateKey, UploadedFile, Procedure, LandPrice } from './types';
 import { DOCUMENT_TEMPLATES } from './constants';
@@ -219,7 +220,8 @@ const App: React.FC = () => {
     }
     
     if (showResumePrompt) {
-        return <HomePage onSelectModule={setActiveModule} showResumePrompt={renderResumePrompt} />;
+        // FIX: Call renderResumePrompt to pass a JSX.Element (ReactNode) instead of a function.
+        return <HomePage onSelectModule={setActiveModule} showResumePrompt={renderResumePrompt()} />;
     }
 
     switch (activeModule) {

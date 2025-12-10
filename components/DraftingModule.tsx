@@ -106,46 +106,38 @@ export const DraftingModule: React.FC<DraftingModuleProps> = ({ onGoHome, onEdit
         
         const newData = await extractDataForStage(currentStage, filesForStage, selectedTemplate.key);
         
-        // Merge new data with existing data
-        setExtractedData(prevData => {
-            const merged = { ...(prevData || {}) };
-            for (const key in newData) {
-                const typedKey = key as keyof ExtractedData;
-                if (Array.isArray(newData[typedKey])) {
-                    // @ts-ignore
-                    merged[typedKey] = [...(merged[typedKey] || []), ...newData[typedKey]];
-                } else if (typeof newData[typedKey] === 'object' && newData[typedKey] !== null) {
-                    // @ts-ignore
-                    merged[typedKey] = { ...(merged[typedKey] || {}), ...newData[typedKey] };
-                } else {
-                    // @ts-ignore
-                    merged[typedKey] = newData[typedKey];
-                }
+        // Manual merge to handle arrays correctly
+        const mergedData = { ...(extractedData || {}) };
+        for (const key in newData) {
+            const typedKey = key as keyof ExtractedData;
+            if (Array.isArray(newData[typedKey])) {
+                // @ts-ignore
+                mergedData[typedKey] = [...(mergedData[typedKey] || []), ...newData[typedKey]];
+            } else if (typeof newData[typedKey] === 'object' && newData[typedKey] !== null) {
+                // @ts-ignore
+                mergedData[typedKey] = { ...(mergedData[typedKey] || {}), ...newData[typedKey] };
+            } else {
+                // @ts-ignore
+                mergedData[typedKey] = newData[typedKey];
             }
-            return merged;
-        });
+        }
+        
+        setExtractedData(mergedData); // Set merged data for next step's context
 
         const nextIndex = currentUploadIndex + 1;
         if (nextIndex < uploadSequence.length) {
             setCurrentUploadIndex(nextIndex);
         } else {
-            // Last stage completed, move to review
-            setExtractedData(currentExtractedData => {
-                if (!currentExtractedData) return null;
-                const today = new Date();
-                const day = String(today.getDate()).padStart(2, '0');
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const year = today.getFullYear();
-                
-                const finalDataWithDate = {
-                    ...currentExtractedData,
-                    documentDate: `${day}/${month}/${year}`,
-                    subTemplateKey: selectedSubTemplateKey,
-                };
+            // Last stage completed, normalize and move to review
+            const today = new Date();
+            const finalDataWithDate = {
+                ...mergedData,
+                documentDate: mergedData.documentDate || `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`,
+                subTemplateKey: selectedSubTemplateKey,
+            };
 
-                const normalizedData = normalizeAllAddressesInExtractedData(finalDataWithDate);
-                return normalizedData;
-            });
+            const normalizedData = await normalizeAllAddressesInExtractedData(finalDataWithDate);
+            setExtractedData(normalizedData);
             setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
         }
     } catch (err) {
@@ -156,28 +148,26 @@ export const DraftingModule: React.FC<DraftingModuleProps> = ({ onGoHome, onEdit
     }
   };
 
-  const handleStageSkip = () => {
+  const handleStageSkip = async () => {
     const nextIndex = currentUploadIndex + 1;
     if (nextIndex < uploadSequence.length) {
         setCurrentUploadIndex(nextIndex);
     } else {
         // Last stage was skipped, move to review with existing data
-        setExtractedData(currentExtractedData => {
-            const dataToFinalize = currentExtractedData || {};
-            const today = new Date();
-            const day = String(today.getDate()).padStart(2, '0');
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const year = today.getFullYear();
-            
-            const finalDataWithDate = {
-                ...dataToFinalize,
-                documentDate: dataToFinalize.documentDate || `${day}/${month}/${year}`,
-                subTemplateKey: selectedSubTemplateKey,
-            };
+        const dataToFinalize = extractedData || {};
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        
+        const finalDataWithDate = {
+            ...dataToFinalize,
+            documentDate: dataToFinalize.documentDate || `${day}/${month}/${year}`,
+            subTemplateKey: selectedSubTemplateKey,
+        };
 
-            const normalizedData = normalizeAllAddressesInExtractedData(finalDataWithDate);
-            return normalizedData;
-        });
+        const normalizedData = await normalizeAllAddressesInExtractedData(finalDataWithDate);
+        setExtractedData(normalizedData);
         setCurrentStep(Step.REVIEW_EXTRACTED_DATA);
     }
   };

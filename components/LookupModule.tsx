@@ -5,7 +5,7 @@ import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, InternalProcedure } from '../types';
 import { analyzeAndSummarizeDocument, extractPriceDataFromDocument, quickExtractPersonalInfo } from '../services/geminiService';
 import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
-import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
+
 
 type LookupTab = 'library' | 'procedures' | 'prices' | 'mapLookup' | 'adminUnits' | 'tools';
 
@@ -27,6 +27,11 @@ interface MapRecord {
     newSheet: string;
     scale: string;
     notes?: string;
+}
+
+interface AdminUnitMapping {
+    newName: string;
+    oldNames: string[];
 }
 
 export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDrafting, onGoHome }) => {
@@ -87,6 +92,7 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
   const [viewingOfficialDoc, setViewingOfficialDoc] = useState<StoredOfficialDocument | null>(null);
 
   // State for Admin Unit Lookup
+  const [adminUnitMapping, setAdminUnitMapping] = useState<AdminUnitMapping[]>([]);
   const [adminUnitSearch, setAdminUnitSearch] = useState('');
   const [adminUnitResults, setAdminUnitResults] = useState<{ oldName: string; newName: string }[]>([]);
   const [selectedAdminNewUnit, setSelectedAdminNewUnit] = useState<string>('');
@@ -101,13 +107,13 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
 
   const adminUnitSearchData = useMemo(() => {
     const data: { oldName: string; newName: string }[] = [];
-    for (const newName in QUANG_NINH_ADDRESS_MAPPING) {
-        QUANG_NINH_ADDRESS_MAPPING[newName].forEach(oldName => {
-            data.push({ oldName, newName });
+    adminUnitMapping.forEach(item => {
+        item.oldNames.forEach(oldName => {
+            data.push({ oldName: oldName, newName: item.newName });
         });
-    }
+    });
     return data;
-  }, []);
+  }, [adminUnitMapping]);
   
   // Derive unique lists for filters (Admin Units) - Cascading Logic
   const uniqueAdminNewUnits = useMemo(() => {
@@ -158,18 +164,18 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const procResponse = await fetch('/data/procedures.json');
+        const procResponse = await fetch('/data/thu-tuc-hanh-chinh.json');
         if (!procResponse.ok) throw new Error(`Không thể tải file thủ tục.`);
         const procData = await procResponse.json();
         setProcedures(procData);
         
-        const internalProcResponse = await fetch('/data/internalProcedures.json');
+        const internalProcResponse = await fetch('/data/quy-trinh-noi-bo.json');
         if (internalProcResponse.ok) {
             const internalProcData = await internalProcResponse.json();
             setInternalProcedures(internalProcData);
         }
 
-        const priceResponse = await fetch('/data/landPrices.json');
+        const priceResponse = await fetch('/data/gia-dat.json');
         if (!priceResponse.ok) throw new Error(`Không thể tải file giá đất.`);
         const initialPricesRaw = await priceResponse.json();
         
@@ -187,11 +193,18 @@ export const LookupModule: React.FC<LookupModuleProps> = ({ onEdit, onStartDraft
         setLandPriceSearchResults(Array.from(priceMap.values())); // Init search results
         
         // Load map data
-        const mapResponse = await fetch('/data/mapData.json');
+        const mapResponse = await fetch('/data/ban-do.json');
         if (mapResponse.ok) {
             const mapJson = await mapResponse.json();
             setMapData(mapJson);
             setMapSearchResults(mapJson); // Initialize with full data
+        }
+
+        // Load admin unit data
+        const adminUnitResponse = await fetch('/data/dv-hanh-chinh.json');
+        if (adminUnitResponse.ok) {
+            const adminUnitJson = await adminUnitResponse.json();
+            setAdminUnitMapping(adminUnitJson);
         }
 
       } catch (error) {

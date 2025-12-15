@@ -673,7 +673,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
        <div className="border-b border-slate-200 overflow-x-auto">
           <nav className="-mb-px flex space-x-4 min-w-max" aria-label="Tabs">
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
-            <TabButton tabId="mapLookup" label="Tra cứu Bản đồ 2 cấp" />
+            <TabButton tabId="mapLookup" label="Bản đồ 2 cấp" />
             <TabButton tabId="adminUnits" label="ĐV Hành chính" />
             <TabButton tabId="officialDocs" label="VB Trình ký" />
             <TabButton tabId="documents" label="Tra cứu Hồ sơ" />
@@ -882,7 +882,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       
        {activeTab === 'mapLookup' && (
         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Bản đồ 2 cấp</h3>
+          <h3 className="text-xl font-semibold text-slate-900 mb-4">Bản đồ 2 cấp</h3>
           <p className="text-slate-600 text-sm mb-4">Tìm kiếm nhanh thông tin quy đổi giữa bản đồ cũ và bản đồ mới. Sử dụng bộ lọc hoặc nhập từ khóa vào ô tìm kiếm.</p>
           <div className="flex flex-col space-y-4">
             <div className="flex flex-col md:flex-row gap-4">

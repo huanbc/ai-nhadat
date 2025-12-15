@@ -49,7 +49,7 @@ export const BANDO2CAP_DATA: MapRecord[] = [
   ...genBC(297, 299, "Thị trấn Ba Chẽ", 2, "1/5000"),
   ...genBC(300, 495, "Thị trấn Ba Chẽ", 5, "1/500"),
 
-  // --- DỮ LIỆU XÃ LƯƠNG MINH (108 tờ) ---
+  // --- DỮ LIỆU XÃ LƯƠNG MINH (266 tờ) ---
   ...genPad("LM", 1, 3, "Xã Lương Mông", 1, "1/10.000", "Xã Lương Minh"),
   ...genPad("LM", 4, 6, "Xã Lương Mông", 4, "1/5.000", "Xã Lương Minh"),
   ...genPad("LM", 7, 9, "Xã Lương Mông", 7, "1/2.000", "Xã Lương Minh"),
@@ -59,7 +59,7 @@ export const BANDO2CAP_DATA: MapRecord[] = [
   ...genPad("LM", 75, 76, "Xã Minh Cầm", 6, "1/2.000", "Xã Lương Minh"),
   ...genPad("LM", 77, 102, "Xã Minh Cầm", 8, "1/1.000", "Xã Lương Minh"),
   ...genPad("LM", 103, 107, "Xã Đồng Sơn", 1, "1/10.000", "Xã Lương Minh"),
-  ...genPad("LM", 108, 108, "Xã Đồng Sơn", 6, "1/1.000", "Xã Lương Minh"),
+  ...genPad("LM", 108, 266, "Xã Đồng Sơn", 6, "1/1.000", "Xã Lương Minh"),
 
   // --- DỮ LIỆU XÃ KỲ THƯỢNG (324 tờ) ---
   ...genPad("KT", 1, 3, "Xã Thanh Lâm", 1, "1/10.000", "Xã Kỳ Thượng"),

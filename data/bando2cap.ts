@@ -3644,7 +3644,7 @@ export const BANDO2CAP_DATA: MapRecord[] = [
   {
     "id": "KT_84",
     "newUnit": "Xã Kỳ Thượng",
-    "oldUnit": "",
+    "oldUnit": "Xã Thanh Lâm",
     "oldSheet": "DC84",
     "newSheet": "DC84",
     "scale": "1/1.000",
@@ -3698,7 +3698,7 @@ export const BANDO2CAP_DATA: MapRecord[] = [
   {
     "id": "KT_90",
     "newUnit": "Xã Kỳ Thượng",
-    "oldUnit": "",
+    "oldUnit": "Xã Thanh Lâm",
     "oldSheet": "DC90",
     "newSheet": "DC90",
     "scale": "1/1.000",

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { DOCUMENT_TEMPLATES } from '../constants';
 import { DocumentTemplate, DocumentTemplateKey, UploadedFile, Procedure, LandPrice } from '../types';
@@ -448,7 +447,7 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, on
                             onChange={(e) => setConsultationField(e.target.value as 'land2024' | 'other' | 'general')}
                             className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
                         >
-                            <option value="land2024">Luật Đất đai 2024 (Chính xác tuyệt đối)</option>
+                            <option value="land2024">Luật đất đai 2024</option>
                             <option value="other">Lĩnh vực Pháp luật khác (Tra cứu Search)</option>
                             <option value="general">Tổng hợp</option>
                         </select>

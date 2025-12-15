@@ -1,4 +1,3 @@
-
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -75,8 +74,8 @@ export interface LandData {
   privateArea?: string; // Diện tích sử dụng riêng
   usagePurpose?: string;
   usageTerm?: string;
-  usageSource?: string;
   usageForm?: string;
+  usageSource?: string;
   certificateNumber?: string;
   certificateBookNumber?: string; // Số vào sổ cấp GCN
   certificateIssuer?: string;

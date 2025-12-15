@@ -1,8 +1,6 @@
-
-
 import { MapRecord } from '../types';
 
-export const MAP_DATA: MapRecord[] = [
+export const BANDO2CAP_DATA: MapRecord[] = [
   {"id":"BC_1","newUnit":"Xã Ba Chẽ","oldUnit":"Xã Thanh Sơn","oldSheet":"DC1","newSheet":"DC1","scale":"1/10000","notes":""},
   {"id":"BC_2","newUnit":"Xã Ba Chẽ","oldUnit":"Xã Thanh Sơn","oldSheet":"DC2","newSheet":"DC2","scale":"1/10000","notes":""},
   {"id":"BC_3","newUnit":"Xã Ba Chẽ","oldUnit":"Xã Thanh Sơn","oldSheet":"DC3","newSheet":"DC3","scale":"1/10000","notes":""},

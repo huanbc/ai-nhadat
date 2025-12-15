@@ -1,5 +1,4 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
 import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, MapRecord } from '../types';
@@ -8,7 +7,7 @@ import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
 import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
 import { PROCEDURES_DATA } from '../data/proceduresData';
 import { LAND_PRICES_DATA } from '../data/landPricesData';
-import { MAP_DATA } from '../data/mapData';
+import { BANDO2CAP_DATA } from '../data/bando2cap';
 
 
 interface DocumentManagerProps {
@@ -72,7 +71,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
 
   // --- DATA LOADING & PREPARATION ---
   const procedures = PROCEDURES_DATA;
-  const mapData = MAP_DATA;
+  const mapData = BANDO2CAP_DATA;
 
   const allLandPrices = useMemo(() => {
     const initialPrices: LandPrice[] = LAND_PRICES_DATA.map((price, index) => ({
@@ -198,6 +197,21 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       return Array.from(new Set(allLandPrices.map(item => item.commune).filter(Boolean) as string[])).sort();
   }, [allLandPrices]);
 
+  const getFilteredLandPricesForDropdowns = useCallback(() => {
+      let filtered = allLandPrices;
+      if (selectedPriceCommune) {
+          filtered = filtered.filter(item => item.commune === selectedPriceCommune);
+      }
+      if (selectedLandType) {
+          filtered = filtered.filter(item => item.landType === selectedLandType);
+      }
+      if (selectedPriceStreet) {
+          filtered = filtered.filter(item => item.streetName === selectedPriceStreet);
+      }
+      return filtered;
+  }, [allLandPrices, selectedPriceCommune, selectedLandType, selectedPriceStreet]);
+
+
   const uniqueLandTypes = useMemo(() => {
     let filtered = allLandPrices;
     if (selectedPriceCommune) {
@@ -207,30 +221,15 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   }, [allLandPrices, selectedPriceCommune]);
 
   const uniquePriceStreets = useMemo(() => {
-      let filtered = allLandPrices;
-      if (selectedPriceCommune) {
-          filtered = filtered.filter(item => item.commune === selectedPriceCommune);
-      }
-      if (selectedLandType) {
-          filtered = filtered.filter(item => item.landType === selectedLandType);
-      }
+      const filtered = getFilteredLandPricesForDropdowns();
       return Array.from(new Set(filtered.map(item => item.streetName).filter(Boolean))).sort();
-  }, [allLandPrices, selectedPriceCommune, selectedLandType]);
+  }, [getFilteredLandPricesForDropdowns]);
 
   const uniquePriceFactors = useMemo(() => {
-      let filtered = allLandPrices;
-       if (selectedPriceCommune) {
-          filtered = filtered.filter(item => item.commune === selectedPriceCommune);
-      }
-      if (selectedLandType) {
-          filtered = filtered.filter(item => item.landType === selectedLandType);
-      }
-       if (selectedPriceStreet) {
-          filtered = filtered.filter(item => item.streetName === selectedPriceStreet);
-      }
+      const filtered = getFilteredLandPricesForDropdowns();
       const factors = filtered.map(item => item.adjustmentFactor).filter(f => f !== undefined && f !== null) as number[];
       return Array.from(new Set(factors)).sort((a, b) => a - b);
-  }, [allLandPrices, selectedPriceCommune, selectedLandType, selectedPriceStreet]);
+  }, [getFilteredLandPricesForDropdowns]);
 
    useEffect(() => {
       if (activeTab === 'prices') {
@@ -272,6 +271,40 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
           setLandPriceSearchResults(results);
       }
   }, [landPriceSearchQuery, allLandPrices, activeTab, selectedPriceCommune, selectedLandType, selectedPriceStreet, selectedPriceFactor]);
+
+  // Cascading Filter Resets for Land Prices
+  // This useEffect will reset all dependent filters whenever the 'prices' tab becomes active
+  // or when the selected commune changes.
+  useEffect(() => {
+      if (activeTab === 'prices') {
+          setSelectedPriceCommune('');
+          setSelectedLandType('');
+          setSelectedPriceStreet('');
+          setSelectedPriceFactor('');
+          setLandPriceSearchQuery('');
+      }
+  }, [activeTab]);
+
+  useEffect(() => {
+      if (selectedPriceCommune) {
+          setSelectedLandType('');
+          setSelectedPriceStreet('');
+          setSelectedPriceFactor('');
+      }
+  }, [selectedPriceCommune]);
+
+  useEffect(() => {
+      if (selectedLandType) {
+          setSelectedPriceStreet('');
+          setSelectedPriceFactor('');
+      }
+  }, [selectedLandType]);
+
+  useEffect(() => {
+      if (selectedPriceStreet) {
+          setSelectedPriceFactor('');
+      }
+  }, [selectedPriceStreet]);
 
 
   const procedureCategories = useMemo(() => {

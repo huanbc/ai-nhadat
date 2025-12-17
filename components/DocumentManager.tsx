@@ -1,20 +1,22 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDocumentStore } from '../hooks/useDocumentStore';
 import { useLandPriceStore } from '../hooks/useLandPriceStore';
-import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, MapRecord } from '../types';
+import { StoredDocument, Procedure, UploadedFile, LandPrice, StoredOfficialDocument, MapRecord, LegalDocumentReference } from '../types';
 import { extractPriceDataFromDocument } from '../services/geminiService';
 import { useOfficialDocumentStore } from '../hooks/useOfficialDocumentStore';
 import { QUANG_NINH_ADDRESS_MAPPING } from '../utils/addressNormalizer';
 import { PROCEDURES_DATA } from '../data/proceduresData';
 import { LAND_PRICES_DATA } from '../data/landPricesData';
 import { BANDO2CAP_DATA } from '../data/bando2cap';
+import { LEGAL_DOCS_DATA } from '../data/legalDocsData';
 
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef') => void;
   onBack?: () => void;
 }
 
@@ -69,9 +71,15 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   const [selectedMapNewUnit, setSelectedMapNewUnit] = useState<string>('');
   const [selectedMapOldUnit, setSelectedMapOldUnit] = useState<string>('');
 
+  // State for Legal Docs
+  const [legalDocSearch, setLegalDocSearch] = useState('');
+  const [selectedLegalType, setSelectedLegalType] = useState('');
+  const [viewingLegalDoc, setViewingLegalDoc] = useState<LegalDocumentReference | null>(null);
+
   // --- DATA LOADING & PREPARATION ---
   const procedures = PROCEDURES_DATA;
   const mapData = BANDO2CAP_DATA;
+  const legalDocsData = LEGAL_DOCS_DATA;
 
   const allLandPrices = useMemo(() => {
     const initialPrices: LandPrice[] = LAND_PRICES_DATA.map((price, index) => ({
@@ -360,6 +368,16 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [documents, citizenNameSearch, certNumberSearch, parcelNumberSearch, mapSheetNumberSearch]);
 
+  const filteredLegalDocs = useMemo(() => {
+      return legalDocsData.filter(doc => {
+          const matchSearch = legalDocSearch.toLowerCase().trim() === '' || 
+                              doc.number.toLowerCase().includes(legalDocSearch.toLowerCase()) ||
+                              doc.title.toLowerCase().includes(legalDocSearch.toLowerCase());
+          const matchType = selectedLegalType === '' || doc.type === selectedLegalType;
+          return matchSearch && matchType;
+      });
+  }, [legalDocsData, legalDocSearch, selectedLegalType]);
+
   const handleDelete = (id: string, title: string) => {
     if (window.confirm(`Bạn có chắc chắn muốn xóa văn bản "${title}" không? Thao tác này không thể hoàn tác.`)) {
       deleteDocument(id);
@@ -444,6 +462,31 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
     setPreviewPrices(null);
   };
   
+  const handleLegalDocDownload = (doc: LegalDocumentReference) => {
+      // Create a blob with the document content and properties
+      const fileContent = `VĂN BẢN PHÁP LUẬT\n\n` +
+                          `Số hiệu: ${doc.number}\n` +
+                          `Loại: ${doc.type}\n` +
+                          `Ngày ban hành: ${doc.date}\n` +
+                          `Ngày có hiệu lực: ${doc.effectiveDate}\n` +
+                          `Cơ quan ban hành: ${doc.agency}\n\n` +
+                          `TRÍCH YẾU:\n${doc.title}\n\n` +
+                          `MÔ TẢ:\n${doc.description}\n\n` +
+                          `NỘI DUNG TÓM TẮT:\n${doc.content}\n\n` +
+                          `(Đây là bản tóm tắt nội dung. Vui lòng tra cứu toàn văn tại Cổng thông tin điện tử Chính phủ hoặc thuvienphapluat.vn)`;
+      
+      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${doc.number.replace(/\//g, '-')}_TomTat.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert(`Đang tải xuống bản tóm tắt nội dung của ${doc.number}. Để xem toàn văn, bạn có thể tìm kiếm trên Google.`);
+  }
+
   const AuthorityButton: React.FC<{ level: AuthorityLevel, label: string }> = ({ level, label }) => {
     const isActive = selectedAuthority === level;
     return (
@@ -621,6 +664,55 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
         </div>
     );
   };
+
+  const renderLegalDocViewer = () => {
+      if (!viewingLegalDoc) return null;
+      return (
+          <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
+              <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                  <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg">
+                      <div>
+                          <h3 className="text-xl font-bold text-slate-900 truncate pr-4">{viewingLegalDoc.title}</h3>
+                          <p className="text-sm text-slate-600">Số hiệu: {viewingLegalDoc.number} | Ngày ban hành: {viewingLegalDoc.date}</p>
+                      </div>
+                      <button onClick={() => setViewingLegalDoc(null)} className="text-slate-500 hover:text-slate-800 text-3xl leading-none flex-shrink-0">&times;</button>
+                  </div>
+                  <div className="flex-grow overflow-auto p-6 bg-white space-y-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm bg-blue-50 p-4 rounded-md border border-blue-100">
+                          <div><span className="font-semibold">Loại văn bản:</span> {viewingLegalDoc.type}</div>
+                          <div><span className="font-semibold">Cơ quan ban hành:</span> {viewingLegalDoc.agency}</div>
+                          <div><span className="font-semibold">Ngày có hiệu lực:</span> {viewingLegalDoc.effectiveDate}</div>
+                      </div>
+                      <div>
+                          <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-2">Mô tả</h4>
+                          <p className="text-slate-700 leading-relaxed">{viewingLegalDoc.description}</p>
+                      </div>
+                      <div>
+                          <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-2">Nội dung tóm tắt</h4>
+                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{viewingLegalDoc.content}</p>
+                      </div>
+                  </div>
+                  <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-lg">
+                      <button 
+                          onClick={() => setViewingLegalDoc(null)}
+                          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                      >
+                          Đóng
+                      </button>
+                      <button 
+                          onClick={() => handleLegalDocDownload(viewingLegalDoc)}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+                      >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                          Tải nội dung tóm tắt
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
   
   const TabButton: React.FC<{ tabId: DocumentManagerProps['activeTab'], label: string }> = ({ tabId, label }) => (
      <button
@@ -640,6 +732,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
       {isPricePreviewOpen && previewPrices && renderPricePreviewPopup()}
       {isEditPricePopupOpen && editingPrice && renderEditPricePopup()}
       {viewingOfficialDoc && renderOfficialDocViewer()}
+      {viewingLegalDoc && renderLegalDocViewer()}
       
       {onBack && (
          <div className="-mb-4">
@@ -673,6 +766,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
        <div className="border-b border-slate-200 overflow-x-auto">
           <nav className="-mb-px flex space-x-4 min-w-max" aria-label="Tabs">
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
+            <TabButton tabId="legalRef" label="Văn bản Pháp luật" />
             <TabButton tabId="mapLookup" label="Bản đồ 2 cấp" />
             <TabButton tabId="adminUnits" label="ĐV Hành chính" />
             <TabButton tabId="officialDocs" label="VB Trình ký" />
@@ -795,6 +889,102 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                 )}
             </div>
           </div>
+       )}
+
+       {activeTab === 'legalRef' && (
+           <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
+               <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Văn bản Pháp luật (Cập nhật 2024)</h3>
+               <p className="text-slate-600 text-sm mb-4">
+                   Tra cứu nhanh các Luật, Nghị định, Thông tư mới nhất về đất đai, nhà ở, kinh doanh bất động sản.
+               </p>
+               
+               <div className="flex flex-col md:flex-row gap-4 mb-6">
+                   <div className="flex-1">
+                       <input
+                           type="text"
+                           value={legalDocSearch}
+                           onChange={(e) => setLegalDocSearch(e.target.value)}
+                           placeholder="Nhập số hiệu, tên văn bản..."
+                           className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                       />
+                   </div>
+                   <div className="w-full md:w-48">
+                       <select
+                           value={selectedLegalType}
+                           onChange={(e) => setSelectedLegalType(e.target.value)}
+                           className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                       >
+                           <option value="">-- Tất cả loại --</option>
+                           <option value="Luật">Luật</option>
+                           <option value="Nghị định">Nghị định</option>
+                           <option value="Thông tư">Thông tư</option>
+                       </select>
+                   </div>
+               </div>
+
+               <div className="overflow-x-auto">
+                   <table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-md">
+                       <thead className="bg-slate-50">
+                           <tr>
+                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Số hiệu</th>
+                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Loại</th>
+                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Trích yếu</th>
+                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ngày ban hành</th>
+                               <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
+                           </tr>
+                       </thead>
+                       <tbody className="bg-white divide-y divide-slate-200">
+                           {filteredLegalDocs.length > 0 ? (
+                               filteredLegalDocs.map((doc) => (
+                                   <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{doc.number}</td>
+                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                               doc.type === 'Luật' ? 'bg-red-100 text-red-800' :
+                                               doc.type === 'Nghị định' ? 'bg-yellow-100 text-yellow-800' :
+                                               'bg-green-100 text-green-800'
+                                           }`}>
+                                               {doc.type}
+                                           </span>
+                                       </td>
+                                       <td className="px-6 py-4 text-sm text-slate-700 line-clamp-2 max-w-md" title={doc.title}>{doc.title}</td>
+                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{doc.date}</td>
+                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                                           <div className="flex justify-center space-x-3">
+                                               <button 
+                                                   onClick={() => setViewingLegalDoc(doc)}
+                                                   className="text-blue-600 hover:text-blue-900"
+                                                   title="Xem nhanh"
+                                               >
+                                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                                   </svg>
+                                               </button>
+                                               <button 
+                                                   onClick={() => handleLegalDocDownload(doc)}
+                                                   className="text-green-600 hover:text-green-900"
+                                                   title="Tải về (Tóm tắt)"
+                                               >
+                                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                                   </svg>
+                                               </button>
+                                           </div>
+                                       </td>
+                                   </tr>
+                               ))
+                           ) : (
+                               <tr>
+                                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                       Không tìm thấy văn bản phù hợp.
+                                   </td>
+                               </tr>
+                           )}
+                       </tbody>
+                   </table>
+               </div>
+           </div>
        )}
         
        {activeTab === 'adminUnits' && (

@@ -112,7 +112,7 @@ export const ManagerLegalDocs: React.FC = () => {
     <>
     {renderLegalDocViewer()}
     <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-        <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Văn bản Pháp luật (Cập nhật 2024)</h3>
+        <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Văn bản pháp luật liên quan Bất động sản</h3>
         <p className="text-slate-600 text-sm mb-4">
             Tra cứu nhanh các Luật, Nghị định, Thông tư mới nhất về đất đai, nhà ở, kinh doanh bất động sản.
         </p>

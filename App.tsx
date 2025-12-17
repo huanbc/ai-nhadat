@@ -18,7 +18,7 @@ import { HomePage } from './components/HomePage';
 const SAVE_KEY = 'documentDraftProgress';
 
 type ViewMode = 'creating' | 'managing';
-type ManagerTab = 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef';
+type ManagerTab = 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup';
 
 const generateUploadSequence = (template: DocumentTemplate): string[] => {
     const sequence: string[] = [];

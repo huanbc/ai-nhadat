@@ -1,4 +1,3 @@
-
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -256,17 +255,4 @@ export interface MapRecord {
     newSheet: string;
     scale: string;
     notes?: string;
-}
-
-export interface LegalDocumentReference {
-    id: string;
-    type: string; // Luật, Nghị định, Thông tư
-    number: string;
-    date: string;
-    effectiveDate: string;
-    title: string;
-    description: string;
-    content: string; // Tóm tắt nội dung
-    agency: string; // Cơ quan ban hành
-    link?: string; // Đường dẫn đến file PDF hoặc trang web
 }

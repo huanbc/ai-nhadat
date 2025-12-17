@@ -1,3 +1,4 @@
+
 export enum Step {
   SELECT_TEMPLATE,
   SELECT_SUB_TEMPLATE,
@@ -255,4 +256,17 @@ export interface MapRecord {
     newSheet: string;
     scale: string;
     notes?: string;
+}
+
+export interface LegalDocumentReference {
+  id: string;
+  number: string;
+  type: string;
+  title: string;
+  date: string;
+  link?: string;
+  agency?: string;
+  effectiveDate?: string;
+  description?: string;
+  content?: string;
 }

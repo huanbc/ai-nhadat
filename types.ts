@@ -268,4 +268,5 @@ export interface LegalDocumentReference {
     description: string;
     content: string; // Tóm tắt nội dung
     agency: string; // Cơ quan ban hành
+    link?: string; // Đường dẫn đến file PDF hoặc trang web
 }

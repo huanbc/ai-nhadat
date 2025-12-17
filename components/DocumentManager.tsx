@@ -463,28 +463,18 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
   };
   
   const handleLegalDocDownload = (doc: LegalDocumentReference) => {
-      // Create a blob with the document content and properties
-      const fileContent = `VĂN BẢN PHÁP LUẬT\n\n` +
-                          `Số hiệu: ${doc.number}\n` +
-                          `Loại: ${doc.type}\n` +
-                          `Ngày ban hành: ${doc.date}\n` +
-                          `Ngày có hiệu lực: ${doc.effectiveDate}\n` +
-                          `Cơ quan ban hành: ${doc.agency}\n\n` +
-                          `TRÍCH YẾU:\n${doc.title}\n\n` +
-                          `MÔ TẢ:\n${doc.description}\n\n` +
-                          `NỘI DUNG TÓM TẮT:\n${doc.content}\n\n` +
-                          `(Đây là bản tóm tắt nội dung. Vui lòng tra cứu toàn văn tại Cổng thông tin điện tử Chính phủ hoặc thuvienphapluat.vn)`;
-      
-      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${doc.number.replace(/\//g, '-')}_TomTat.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      alert(`Đang tải xuống bản tóm tắt nội dung của ${doc.number}. Để xem toàn văn, bạn có thể tìm kiếm trên Google.`);
+      if (doc.link && doc.link.toLowerCase().endsWith('.pdf')) {
+          const link = document.createElement('a');
+          link.href = doc.link;
+          link.target = "_blank";
+          link.download = doc.number.replace(/\//g, '-') + '.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      } else {
+          alert('Không tìm thấy link tải xuống trực tiếp cho văn bản này. Đang mở trang nguồn...');
+          window.open(doc.link || 'https://vanban.chinhphu.vn', '_blank');
+      }
   }
 
   const AuthorityButton: React.FC<{ level: AuthorityLevel, label: string }> = ({ level, label }) => {
@@ -667,48 +657,74 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
 
   const renderLegalDocViewer = () => {
       if (!viewingLegalDoc) return null;
+      
+      const isPdf = viewingLegalDoc.link && viewingLegalDoc.link.toLowerCase().endsWith('.pdf');
+      
       return (
-          <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
-              <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                  <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg">
-                      <div>
-                          <h3 className="text-xl font-bold text-slate-900 truncate pr-4">{viewingLegalDoc.title}</h3>
-                          <p className="text-sm text-slate-600">Số hiệu: {viewingLegalDoc.number} | Ngày ban hành: {viewingLegalDoc.date}</p>
-                      </div>
-                      <button onClick={() => setViewingLegalDoc(null)} className="text-slate-500 hover:text-slate-800 text-3xl leading-none flex-shrink-0">&times;</button>
+          <div className="fixed inset-0 z-[100] bg-slate-900 bg-opacity-95 flex flex-col h-screen" aria-modal="true" role="dialog">
+              <div className="flex justify-between items-center px-6 py-3 bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10 flex-shrink-0">
+                  <div className="flex-grow pr-4">
+                      <h3 className="text-lg font-bold text-slate-900 truncate">{viewingLegalDoc.title}</h3>
+                      <p className="text-sm text-slate-500">{viewingLegalDoc.number} | {viewingLegalDoc.date}</p>
                   </div>
-                  <div className="flex-grow overflow-auto p-6 bg-white space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm bg-blue-50 p-4 rounded-md border border-blue-100">
-                          <div><span className="font-semibold">Loại văn bản:</span> {viewingLegalDoc.type}</div>
-                          <div><span className="font-semibold">Cơ quan ban hành:</span> {viewingLegalDoc.agency}</div>
-                          <div><span className="font-semibold">Ngày có hiệu lực:</span> {viewingLegalDoc.effectiveDate}</div>
-                      </div>
-                      <div>
-                          <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-2">Mô tả</h4>
-                          <p className="text-slate-700 leading-relaxed">{viewingLegalDoc.description}</p>
-                      </div>
-                      <div>
-                          <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-2">Nội dung tóm tắt</h4>
-                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{viewingLegalDoc.content}</p>
-                      </div>
-                  </div>
-                  <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-lg">
-                      <button 
-                          onClick={() => setViewingLegalDoc(null)}
-                          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
-                      >
-                          Đóng
-                      </button>
-                      <button 
-                          onClick={() => handleLegalDocDownload(viewingLegalDoc)}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  <div className="flex items-center space-x-3 flex-shrink-0">
+                      <a 
+                          href={viewingLegalDoc.link} 
+                          target="_blank"
+                          download={isPdf}
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 flex items-center gap-2 transition-colors"
                       >
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                           </svg>
-                          Tải nội dung tóm tắt
+                          Tải về / Mở ngoài
+                      </a>
+                      <button onClick={() => setViewingLegalDoc(null)} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                       </button>
                   </div>
+              </div>
+              
+              <div className="flex-grow bg-gray-200 relative overflow-hidden">
+                  {viewingLegalDoc.link ? (
+                      <iframe 
+                          src={viewingLegalDoc.link} 
+                          title="Nội dung văn bản"
+                          className="w-full h-full border-none"
+                      >
+                          <p className="p-8 text-center">Trình duyệt của bạn không hỗ trợ xem trước PDF. <a href={viewingLegalDoc.link} target="_blank" className="text-blue-600 underline">Nhấn vào đây để tải về.</a></p>
+                      </iframe>
+                  ) : (
+                      <div className="max-w-5xl mx-auto bg-white shadow-lg min-h-screen p-8 md:p-12 overflow-y-auto h-full">
+                          <div className="mb-8 border-b border-slate-100 pb-6">
+                              <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+                                  <div className="bg-slate-50 px-3 py-1 rounded border border-slate-200">
+                                      <span className="font-semibold">Loại văn bản:</span> {viewingLegalDoc.type}
+                                  </div>
+                                  <div className="bg-slate-50 px-3 py-1 rounded border border-slate-200">
+                                      <span className="font-semibold">Cơ quan ban hành:</span> {viewingLegalDoc.agency}
+                                  </div>
+                                  <div className="bg-slate-50 px-3 py-1 rounded border border-slate-200">
+                                      <span className="font-semibold">Ngày hiệu lực:</span> {viewingLegalDoc.effectiveDate}
+                                  </div>
+                              </div>
+                              <div className="mt-4">
+                                  <h4 className="font-bold text-slate-800 mb-1">Mô tả:</h4>
+                                  <p className="text-slate-700 italic">{viewingLegalDoc.description}</p>
+                              </div>
+                          </div>
+                          
+                          <div>
+                              <h4 className="font-bold text-slate-900 text-lg mb-4 uppercase text-center border-b pb-2">Nội dung văn bản</h4>
+                              <div className="prose prose-slate max-w-none font-serif text-lg leading-relaxed text-justify text-slate-800 whitespace-pre-wrap">
+                                  {viewingLegalDoc.content}
+                              </div>
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       );
@@ -986,466 +1002,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
                </div>
            </div>
        )}
-        
-       {activeTab === 'adminUnits' && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Đơn vị Hành chính mới (Tỉnh Quảng Ninh)</h3>
-          <p className="text-slate-600 text-sm mb-4">Tra cứu thông tin quy đổi giữa đơn vị hành chính cũ và mới. Sử dụng bộ lọc hoặc nhập tên vào ô tìm kiếm.</p>
-          <div className="flex flex-col space-y-4">
-             <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                    <label htmlFor="admin-new-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Mới:</label>
-                    <select
-                        id="admin-new-unit-filter"
-                        value={selectedAdminNewUnit}
-                        onChange={(e) => setSelectedAdminNewUnit(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniqueAdminNewUnits.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label htmlFor="admin-old-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Cũ:</label>
-                    <select
-                        id="admin-old-unit-filter"
-                        value={selectedAdminOldUnit}
-                        onChange={(e) => setSelectedAdminOldUnit(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniqueAdminOldUnits.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={() => {
-                            setSelectedAdminNewUnit('');
-                            setSelectedAdminOldUnit('');
-                            setAdminUnitSearch('');
-                        }}
-                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
-                    >
-                        Xóa lọc
-                    </button>
-                </div>
-            </div>
-            <input
-              type="text"
-              value={adminUnitSearch}
-              onChange={(e) => setAdminUnitSearch(e.target.value)}
-              placeholder="Nhập tên đơn vị hành chính cũ hoặc mới..."
-              className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              aria-label="Tra cứu đơn vị hành chính"
-            />
-            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
-              {adminUnitResults.length > 0 ? (
-                 <table className="w-full text-sm text-left text-slate-800">
-                  <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
-                    <tr>
-                      <th scope="col" className="px-4 py-2">Đơn vị cũ</th>
-                      <th scope="col" className="px-4 py-2">Đơn vị mới</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adminUnitResults.map((item, index) => (
-                      <tr key={index} className="bg-white border-b border-slate-200">
-                        <td className="px-4 py-2">{item.oldName}</td>
-                        <td className="px-4 py-2 font-semibold text-blue-800">{item.newName}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (adminUnitSearch.trim() || selectedAdminNewUnit || selectedAdminOldUnit) ? (
-                <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
-              ) : (
-                <p className="p-4 text-slate-400 text-center mt-4">Nhập thông tin để bắt đầu tra cứu.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-       {activeTab === 'mapLookup' && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-          <h3 className="text-xl font-semibold text-slate-900 mb-4">Bản đồ 2 cấp</h3>
-          <p className="text-slate-600 text-sm mb-4">Tìm kiếm nhanh thông tin quy đổi giữa bản đồ cũ và bản đồ mới. Sử dụng bộ lọc hoặc nhập từ khóa vào ô tìm kiếm.</p>
-          <div className="flex flex-col space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                    <label htmlFor="new-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Mới:</label>
-                    <select
-                        id="new-unit-filter"
-                        value={selectedMapNewUnit}
-                        onChange={(e) => setSelectedMapNewUnit(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniqueNewUnits.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label htmlFor="old-unit-filter" className="block text-xs font-medium text-slate-700 mb-1">Lọc theo Đơn vị HC Cũ:</label>
-                    <select
-                        id="old-unit-filter"
-                        value={selectedMapOldUnit}
-                        onChange={(e) => setSelectedMapOldUnit(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniqueOldUnits.map(unit => (
-                            <option key={unit} value={unit}>{unit}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={() => {
-                            setSelectedMapNewUnit('');
-                            setSelectedMapOldUnit('');
-                            setMapSearchQuery('');
-                        }}
-                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
-                    >
-                        Xóa lọc
-                    </button>
-                </div>
-            </div>
-            <input
-              type="text"
-              value={mapSearchQuery}
-              onChange={(e) => setMapSearchQuery(e.target.value)}
-              placeholder="Nhập số tờ bản đồ, ghi chú (VD: dc 01)..."
-              className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              aria-label="Tra cứu bản đồ"
-            />
-            <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[300px]">
-              {mapSearchResults.length > 0 ? (
-                 <table className="w-full text-sm text-left text-slate-800">
-                  <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
-                    <tr>
-                      <th scope="col" className="px-4 py-2">Đơn vị HC Mới</th>
-                      <th scope="col" className="px-4 py-2">Đơn vị HC Cũ</th>
-                      <th scope="col" className="px-4 py-2 text-center">Tờ BĐ Cũ</th>
-                      <th scope="col" className="px-4 py-2 text-center">Tờ BĐ Mới</th>
-                      <th scope="col" className="px-4 py-2 text-center">Tỷ lệ</th>
-                      <th scope="col" className="px-4 py-2">Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mapSearchResults.map((item) => (
-                      <tr key={item.id} className="bg-white border-b border-slate-200 hover:bg-blue-50 transition-colors">
-                        <td className="px-4 py-2 font-medium text-blue-800">{item.newUnit}</td>
-                        <td className="px-4 py-2">{item.oldUnit}</td>
-                        <td className="px-4 py-2 text-center font-semibold">{item.oldSheet}</td>
-                        <td className="px-4 py-2 text-center font-semibold text-green-700">{item.newSheet}</td>
-                        <td className="px-4 py-2 text-center text-slate-500">{item.scale}</td>
-                         <td className="px-4 py-2 text-xs text-slate-500 italic">{item.notes}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (mapSearchQuery.trim() || selectedMapNewUnit || selectedMapOldUnit) ? (
-                <p className="p-4 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
-              ) : (
-                <p className="p-4 text-slate-400 text-center mt-4">Nhập thông tin để bắt đầu tra cứu.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-       {activeTab === 'officialDocs' && (
-         <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Văn bản Trình ký đã lưu</h3>
-             {officialDocuments.length > 0 ? (
-              <div className="space-y-3">
-                {officialDocuments.map(doc => (
-                  <div key={doc.id} className="border border-slate-200 rounded-md p-4 bg-slate-50 flex justify-between items-center gap-2">
-                      <div className="flex-grow">
-                          <p className="font-semibold text-slate-800">{doc.title}</p>
-                          <p className="text-xs text-slate-500">Lưu lúc: {new Date(doc.createdAt).toLocaleString('vi-VN')}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                          <button onClick={() => setViewingOfficialDoc(doc)} className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Xem</button>
-                          <button onClick={() => handleDeleteOfficialDocument(doc.id, doc.title)} className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200">Xóa</button>
-                      </div>
-                  </div>
-                ))}
-              </div>
-             ) : (
-                <p className="text-center text-slate-500 py-8">Chưa có văn bản trình ký nào được lưu.</p>
-             )}
-         </div>
-       )}
-      
-       {activeTab === 'documents' && (
-          <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Hồ sơ</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <input
-                type="text"
-                placeholder="Tra cứu theo Tên Công dân..."
-                value={citizenNameSearch}
-                onChange={(e) => setCitizenNameSearch(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-              <input
-                type="text"
-                placeholder="Tra cứu theo Số Giấy chứng nhận..."
-                value={certNumberSearch}
-                onChange={(e) => setCertNumberSearch(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-               <input
-                type="text"
-                placeholder="Tra cứu theo Số thửa đất..."
-                value={parcelNumberSearch}
-                onChange={(e) => setParcelNumberSearch(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-               <input
-                type="text"
-                placeholder="Tra cứu theo Tờ bản đồ..."
-                value={mapSheetNumberSearch}
-                onChange={(e) => setMapSheetNumberSearch(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-              />
-            </div>
-
-            <div className="overflow-x-auto">
-              {filteredDocuments.length > 0 ? (
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">STT</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thời gian tạo</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Loại văn bản</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên Bên A</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CCCD Bên A</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên Bên B</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CCCD Bên B</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Số GCN</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {filteredDocuments.map((doc, index) => {
-                      let partyAName: string;
-                      let partyAId: string;
-                      
-                      if (doc.data.partyA && doc.data.partyA.length > 0) {
-                          partyAName = doc.data.partyA[0].fullName || '---';
-                          partyAId = doc.data.partyA[0].idNumber || '---';
-                      } else if (doc.data.heirs && doc.data.heirs.length > 0) {
-                          partyAName = `Các thừa kế của ${doc.data.deceasedPersons?.[0]?.fullName || '...'}`;
-                          partyAId = '---';
-                      } else {
-                          partyAName = '---';
-                          partyAId = '---';
-                      }
-                      
-                      const partyB = doc.data.partyB?.[0];
-                      const landCert = doc.data.landInfo?.[0];
-
-                      return (
-                        <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{index + 1}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(doc.createdAt).toLocaleString('vi-VN')}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{doc.templateTitle}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{partyAName}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{partyAId}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{partyB?.fullName || '---'}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{partyB?.idNumber || '---'}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{landCert?.certificateNumber || '---'}</td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-2">
-                            <button
-                              onClick={() => onEdit(doc)}
-                              className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                            >
-                              Xem/Sửa
-                            </button>
-                            <button
-                              onClick={() => handleDelete(doc.id, doc.templateTitle)}
-                              className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                            >
-                              Xóa
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center py-12">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-lg font-medium text-slate-800">Không tìm thấy văn bản nào</h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {documents.length > 0 ? "Thử thay đổi bộ lọc tìm kiếm của bạn." : "Hãy bắt đầu tạo văn bản mới, chúng sẽ được lưu tại đây."}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-       )}
-
-      {activeTab === 'prices' && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-slate-200">
-            <h3 className="text-xl font-semibold text-slate-900 mb-4">Tra cứu Nhanh Giá đất</h3>
-            <p className="text-slate-600 text-sm mb-4">Tra cứu đơn giá đất theo tên đường/phố. Dữ liệu tham khảo Bảng giá đất tỉnh Quảng Ninh 2020-2024.</p>
-            <div className="flex flex-col space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                    <label htmlFor="price-commune-filter" className="block text-xs font-medium text-slate-700 mb-1">Đơn vị Hành chính (Xã/Phường):</label>
-                    <select
-                        id="price-commune-filter"
-                        value={selectedPriceCommune}
-                        onChange={(e) => setSelectedPriceCommune(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniquePriceCommunes.map(commune => (
-                            <option key={commune} value={commune}>{commune}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label htmlFor="price-land-type-filter" className="block text-xs font-medium text-slate-700 mb-1">Loại đất:</label>
-                    <select
-                        id="price-land-type-filter"
-                        value={selectedLandType}
-                        onChange={(e) => setSelectedLandType(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniqueLandTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
-                </div>
-                 <div className="flex-1">
-                    <label htmlFor="price-street-filter" className="block text-xs font-medium text-slate-700 mb-1">Tên đường/Khu vực:</label>
-                    <select
-                        id="price-street-filter"
-                        value={selectedPriceStreet}
-                        onChange={(e) => setSelectedPriceStreet(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                         {uniquePriceStreets.map(street => (
-                            <option key={street} value={street}>{street}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex-1 max-w-[100px]">
-                    <label htmlFor="price-factor-filter" className="block text-xs font-medium text-slate-700 mb-1">Hệ số ĐC:</label>
-                    <select
-                        id="price-factor-filter"
-                        value={selectedPriceFactor}
-                        onChange={(e) => setSelectedPriceFactor(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {uniquePriceFactors.map(factor => (
-                            <option key={factor} value={factor}>{factor}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={() => {
-                            setSelectedPriceCommune('');
-                            setSelectedLandType('');
-                            setSelectedPriceStreet('');
-                            setSelectedPriceFactor('');
-                            setLandPriceSearchQuery('');
-                        }}
-                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors whitespace-nowrap"
-                    >
-                        Xóa lọc
-                    </button>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                    type="text"
-                    value={landPriceSearchQuery}
-                    onChange={(e) => setLandPriceSearchQuery(e.target.value)}
-                    placeholder="Nhập từ khóa tìm kiếm (đoạn đường, ghi chú...)..."
-                    className="flex-grow p-3 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
-                    aria-label="Nhập tên đường để tra cứu"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                  <label htmlFor="price-update-upload" className="text-sm font-medium text-slate-700">Hoặc cập nhật bảng giá đất mới:</label>
-                  <input
-                        id="price-update-upload"
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp, application/pdf"
-                        onChange={handleFileForPriceUpdate}
-                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-                    />
-                    {isUpdatingPrices && <p className="text-sm text-slate-500 animate-pulse">Đang xử lý tệp...</p>}
-                    {priceUpdateError && <p className="text-sm text-red-600">{priceUpdateError}</p>}
-              </div>
-                <div className="w-full flex-grow bg-slate-50 border border-slate-200 rounded-md overflow-y-auto min-h-[220px]">
-                  {landPriceSearchResults.length > 0 ? (
-                    <table className="w-full text-sm text-left text-slate-800">
-                      <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0">
-                        <tr>
-                          <th scope="col" className="px-4 py-2">Xã/Phường/Đặc khu</th>
-                          <th scope="col" className="px-4 py-2">Loại đất</th>
-                          <th scope="col" className="px-4 py-2">Mã/Tên đường</th>
-                          <th scope="col" className="px-4 py-2">Đoạn đường</th>
-                          <th scope="col" className="px-4 py-2 text-center">HSĐC</th>
-                          <th scope="col" className="px-4 py-2 text-right">Đơn giá (đồng/m²)</th>
-                          <th scope="col" className="px-4 py-2">Ghi chú</th>
-                          <th scope="col" className="px-4 py-2 text-center">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {landPriceSearchResults.map((item, index) => (
-                          <tr key={item.id || index} className="bg-white border-b border-slate-200">
-                            <td className="px-4 py-2 font-medium">{item.commune}</td>
-                            <td className="px-4 py-2">{item.landType}</td>
-                             <td className="px-4 py-2">{item.streetName}</td>
-                            <td className="px-4 py-2">
-                                {item.section}
-                                {item.sectionCode && <span className="block text-xs text-slate-500">Mã đoạn: {item.sectionCode}</span>}
-                            </td>
-                            <td className="px-4 py-2 text-center">{item.adjustmentFactor}</td>
-                            <td className="px-4 py-2 text-right font-semibold">{formatPrice(item.price)}</td>
-                            <td className="px-4 py-2 text-xs italic">{item.notes}</td>
-                            <td className="px-4 py-2 text-center">
-                              <button
-                                onClick={() => handleOpenEditPricePopup(item)}
-                                className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
-                              >
-                                Sửa
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (landPriceSearchQuery.trim() || selectedPriceCommune || selectedLandType || selectedPriceStreet || selectedPriceFactor) ? (
-                    <p className="p-3 text-slate-500 text-center mt-4">Không tìm thấy kết quả phù hợp.</p>
-                  ) : (
-                     <p className="p-3 text-slate-400 text-center mt-4">Sử dụng bộ lọc hoặc nhập từ khóa để tìm kiếm.</p>
-                  )}
-                </div>
-            </div>
-          </div>
-      )}
     </div>
   );
 };

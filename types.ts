@@ -248,6 +248,16 @@ export interface LandPrice {
   notes?: string;
 }
 
+export interface PublicServicePrice {
+    id: string;
+    category: string;
+    subCategory?: string;
+    unit: string;
+    classification: string;
+    price: number;
+    notes?: string;
+}
+
 export interface MapRecord {
     id: string;
     newUnit: string;

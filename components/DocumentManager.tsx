@@ -8,12 +8,13 @@ import { ManagerAdminUnits } from './ManagerAdminUnits';
 import { ManagerOfficialDocs } from './ManagerOfficialDocs';
 import { ManagerStoredDocs } from './ManagerStoredDocs';
 import { ManagerLandPrices } from './ManagerLandPrices';
+import { ManagerPublicServicePrices } from './ManagerPublicServicePrices';
 
 interface DocumentManagerProps {
   onEdit: (doc: StoredDocument) => void;
   onGoHome: () => void;
-  activeTab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef';
-  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef') => void;
+  activeTab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef' | 'publicServicePrices';
+  onTabChange: (tab: 'documents' | 'procedures' | 'prices' | 'officialDocs' | 'adminUnits' | 'mapLookup' | 'legalRef' | 'publicServicePrices') => void;
   onBack?: () => void;
 }
 
@@ -69,6 +70,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
             <TabButton tabId="procedures" label="Thủ tục Hành chính" />
             <TabButton tabId="legalRef" label="Văn bản Pháp luật" />
             <TabButton tabId="mapLookup" label="Bản đồ 2 cấp" />
+            <TabButton tabId="publicServicePrices" label="Giá Dịch vụ công" />
             <TabButton tabId="adminUnits" label="ĐV Hành chính" />
             <TabButton tabId="officialDocs" label="VB Trình ký" />
             <TabButton tabId="documents" label="Tra cứu Hồ sơ" />
@@ -79,6 +81,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ onEdit, onGoHo
        {activeTab === 'procedures' && <ManagerProcedures />}
        {activeTab === 'legalRef' && <ManagerLegalDocs />}
        {activeTab === 'mapLookup' && <ManagerMap />}
+       {activeTab === 'publicServicePrices' && <ManagerPublicServicePrices />}
        {activeTab === 'adminUnits' && <ManagerAdminUnits />}
        {activeTab === 'officialDocs' && <ManagerOfficialDocs />}
        {activeTab === 'documents' && <ManagerStoredDocs onEdit={onEdit} />}
